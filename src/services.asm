@@ -387,10 +387,12 @@ Sound_Play  pshs x,b
             cmpb snd_pri
             bhs .take
 .expired    pshs d
-            ldd <frames
-            subd snd_until
+            ldd snd_until       ; the frames it is still protected for: 1 to 255, as long as protection lasts. Taken so, and not
+            subd <frames        ; as frames-snd_until signed, which turns negative again 32768 frames on (9 minutes without a
+            subd #1             ; sound), and then kept every lower sound out for 9 minutes more
+            cmpd #255
             puls d              ; leaves the flags alone
-            bmi .out
+            blo .out
 .take       sta <snd_pending
             sta snd_cmd
             stb snd_pri
