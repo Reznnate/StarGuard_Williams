@@ -6,6 +6,13 @@ SC_OX       equ 50              ; the original's 0,0, in the coordinates of Text
 SC_OY       equ 67
 SC_BTNS     equ BTN_FIRE+BTN_JUMP+BTN_ALTJUMP+BTN_START1+BTN_START2
 ST_COUNT    equ 32
+; The title's stars fill the monitor, which shows byte columns SCH_C0 on and lines SCH_LN0 to SCH_LN1; in the original's 108
+; lines, only those free of text (ti_lines). The title shows no bezel.
+SCH_C0      equ 3
+SCH_NC      equ 146
+SCH_LN0     equ 7
+SCH_LN1     equ 246
+SC_NSTAR    equ 80              ; for as many to the area as the original's 32
 SC_STAR     equ 5               ; a star: column (8.8), line on the screen, speed (8.8)
 
 lc_ticks    equ ent_pool+0
@@ -1109,10 +1116,13 @@ TI_TIME     equ 360             ; ticks before it shows the scores
 
 ; A=0 to start, 1 for the scores.
 Title_Screen
+            jsr Bezel_On        ; any other screen shows the bezel
             tst adv_req         ; Advance, here or on an attract screen
             beq .title
             jsr Settings_Screen
 .title      jsr Screen_Begin
+            clr VIDEO_CTRL      ; the title shows none: its stars fill the monitor. Bezel_On brings it back
+            clr bz_dirty
             ldd <now
             addd #$ACE1
             std sc_seed
@@ -1210,6 +1220,7 @@ Title_Screen
             bne .loop
             ; Left alone, as the original: the story, the bestiary. Then the scores, and back. A button comes back at once.
             jsr ti_palette
+            jsr Bezel_On
             jsr Story_Screen
             lbne Title_Screen
             jsr Bestiary_Screen
@@ -1229,6 +1240,7 @@ Title_Screen
             bra .loop
 .go         lda #SND_GUI_02
             jsr Sound_Play
+            jsr Bezel_On
             lda sc_sel
             rts
 
@@ -1309,18 +1321,28 @@ ti_rand     ldd sc_seed
 ; Y=a star. Starts it at the right on a line with nothing else on it.
 ti_star_new bsr ti_rand
             stb sc_tmp
-            anda #31
+            cmpa #SCH_LN1-SCH_LN0+1
+            bhs ti_star_new
+            adda #SCH_LN0       ; the line
+            cmpa #SC_OY+SCR_ROW0
+            blo .line
+            cmpa #SC_OY+SCR_ROW0+107
+            bhi .line
+            lda sc_tmp          ; in the original's lines: one with nothing else on it
+            lsra
+            lsra
+            lsra
             ldx #ti_lines
             lda a,x
             adda #SC_OY+SCR_ROW0
-            sta 2,y
+.line       sta 2,y
             lda sc_tmp
             anda #7
             asla
             ldx #ti_speeds
             ldd a,x
             std 3,y
-            ldd #(VIEW_COLS-1)*256
+            ldd #(SCH_NC-1)*256
             std ,y
             rts
 
@@ -1332,14 +1354,13 @@ ti_speeds   fdb 82,100,130,180,260,400,700,1600
 
 ti_stars_new
             ldy #sc_stars
-            lda #ST_COUNT
+            lda #SC_NSTAR
             sta sc_n
-.next       bsr ti_star_new
-            bsr ti_rand
-            anda #$7F
-            cmpa #VIEW_COLS
+.next       jsr ti_star_new
+            jsr ti_rand
+            cmpa #SCH_NC
             blo .col
-            suba #VIEW_COLS
+            suba #SCH_NC
 .col        sta ,y
             leay SC_STAR,y
             dec sc_n
@@ -1348,7 +1369,7 @@ ti_stars_new
 
 ; Each moves left. A star is written straight to the screen.
 ti_stars    ldy #sc_stars
-            lda #ST_COUNT
+            lda #SC_NSTAR
             sta sc_n
 .next       ldd ,y
             sta sc_tmp
@@ -1357,24 +1378,24 @@ ti_stars    ldy #sc_stars
             std ,y
             cmpa sc_tmp
             beq .on
-            adda #VIEW_COL0
+            adda #SCH_C0
             ldb 2,y
             tfr d,x
             lda #$77
             sta ,x
             lda sc_tmp
-            adda #VIEW_COL0
+            adda #SCH_C0
             ldb 2,y
             tfr d,x
             clr ,x
             bra .on
 .off        lda sc_tmp
-            adda #VIEW_COL0
+            adda #SCH_C0
             ldb 2,y
             tfr d,x
             clr ,x
             jsr ti_star_new
-            lda #VIEW_COL0+VIEW_COLS-1
+            lda #SCH_C0+SCH_NC-1
             ldb 2,y
             tfr d,x
             lda #$77

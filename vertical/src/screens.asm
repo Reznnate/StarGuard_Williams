@@ -9,12 +9,29 @@ SC_OY       equ 67
 ; SCV_P-y. The original's 192x108 is centred where the game's view is.
 SCV_L       equ VIEW_ROW0+VIEW_H/2-(SC_OX+96)
 SCV_P       equ VIEW_COL0*2+VIEW_COLS+SC_OY+54
-SC_SCOLS    equ GVIEW_W/2       ; the title's stars, in steps of 2 lines
 SCV_PX0     equ 6               ; what the monitor shows: pixel columns 6 to 297, lines 7 to 246
 SCV_PX1     equ 297
 SCV_LN0     equ 7
 SCV_LN1     equ 246
+; The title's stars fill the monitor: they move along all the lines it shows, in steps of 2, and lie in any byte column it
+; shows, but in the original's 108 lines (byte columns SCV_B0 to SCV_B1) only in those free of text (ti_lines).
+SC_SCOLS    equ (SCV_LN1-SCV_LN0+1)/2
+SC_NSTAR    equ 80              ; for as many to the area as the horizontal build's 32
+SCV_C0      equ (SCV_PX0+1)/2
+SCV_C1      equ (SCV_PX1-1)/2
+SCV_B0      equ (SCV_P-SC_OY-107)/2
+SCV_B1      equ (SCV_P-SC_OY+1)/2
+            assert SC_SCOLS*2-2+SCV_LN0<=SCV_LN1,"the stars' lines on the monitor"
+            assert SCV_C1-SCV_C0+1<=255,"a byte picks the stars' column"
             assert SC_OX+SCV_L>=0,"the layout's left edge is on a line"
+            else
+; The title's stars fill the monitor, which shows byte columns SCH_C0 on and lines SCH_LN0 to SCH_LN1; in the original's 108
+; lines, only those free of text (ti_lines). The title shows no bezel.
+SCH_C0      equ 3
+SCH_NC      equ 146
+SCH_LN0     equ 7
+SCH_LN1     equ 246
+SC_NSTAR    equ 80              ; for as many to the area as the original's 32
             endif
 SC_BTNS     equ BTN_FIRE+BTN_JUMP+BTN_ALTJUMP+BTN_START1+BTN_START2
 ST_COUNT    equ 32
@@ -1194,10 +1211,13 @@ TI_TIME     equ 360             ; ticks before it shows the scores
 
 ; A=0 to start, 1 for the scores.
 Title_Screen
+            jsr Bezel_On        ; any other screen shows the bezel
             tst adv_req         ; Advance, here or on an attract screen
             beq .title
             jsr Settings_Screen
 .title      jsr Screen_Begin
+            clr VIDEO_CTRL      ; the title shows none: its stars fill the monitor. Bezel_On brings it back
+            clr bz_dirty
             ldd <now
             addd #$ACE1
             std sc_seed
@@ -1295,6 +1315,7 @@ Title_Screen
             bne .loop
             ; Left alone, as the original: the story, the bestiary. Then the scores, and back. A button comes back at once.
             jsr ti_palette
+            jsr Bezel_On
             jsr Story_Screen
             lbne Title_Screen
             jsr Bestiary_Screen
@@ -1314,6 +1335,7 @@ Title_Screen
             bra .loop
 .go         lda #SND_GUI_02
             jsr Sound_Play
+            jsr Bezel_On
             lda sc_sel
             rts
 
@@ -1392,18 +1414,45 @@ ti_rand     ldd sc_seed
             rts
 
 ; Y=a star. Starts it at the right on a line with nothing else on it.
+            if VERT
 ti_star_new bsr ti_rand
             stb sc_tmp
-            anda #31
+            cmpa #SCV_C1-SCV_C0+1
+            bhs ti_star_new
+            adda #SCV_C0        ; the byte column
+            cmpa #SCV_B0
+            blo .col
+            cmpa #SCV_B1
+            bhi .col
+            lda sc_tmp          ; in the original's lines: one with nothing else on it
+            lsra
+            lsra
+            lsra
             ldx #ti_lines
             lda a,x
-            if VERT
-            nega                ; the pixel column
-            adda #SCV_P-SC_OY
+            nega
+            adda #SCV_P-SC_OY   ; the pixel column
+            lsra
+.col        sta 2,y
             else
+ti_star_new bsr ti_rand
+            stb sc_tmp
+            cmpa #SCH_LN1-SCH_LN0+1
+            bhs ti_star_new
+            adda #SCH_LN0       ; the line
+            cmpa #SC_OY+SCR_ROW0
+            blo .line
+            cmpa #SC_OY+SCR_ROW0+107
+            bhi .line
+            lda sc_tmp          ; in the original's lines: one with nothing else on it
+            lsra
+            lsra
+            lsra
+            ldx #ti_lines
+            lda a,x
             adda #SC_OY+SCR_ROW0
+.line       sta 2,y
             endif
-            sta 2,y
             lda sc_tmp
             anda #7
             asla
@@ -1413,7 +1462,7 @@ ti_star_new bsr ti_rand
             if VERT
             ldd #(SC_SCOLS-1)*256
             else
-            ldd #(VIEW_COLS-1)*256
+            ldd #(SCH_NC-1)*256
             endif
             std ,y
             rts
@@ -1433,19 +1482,19 @@ ti_speeds   fdb 82,100,130,180,260,400,700,1600
 
 ti_stars_new
             ldy #sc_stars
-            lda #ST_COUNT
+            lda #SC_NSTAR
             sta sc_n
-.next       bsr ti_star_new
-            bsr ti_rand
-            anda #$7F
+.next       jsr ti_star_new
+            jsr ti_rand
             if VERT
+            anda #$7F
             cmpa #SC_SCOLS
             blo .col
             suba #SC_SCOLS
             else
-            cmpa #VIEW_COLS
+            cmpa #SCH_NC
             blo .col
-            suba #VIEW_COLS
+            suba #SCH_NC
             endif
 .col        sta ,y
             leay SC_STAR,y
@@ -1456,7 +1505,7 @@ ti_stars_new
             if VERT
 ; Each moves left, along the lines. A star is written straight to the screen.
 ti_stars    ldy #sc_stars
-            lda #ST_COUNT
+            lda #SC_NSTAR
             sta sc_n
 .next       ldd ,y
             sta sc_tmp
@@ -1486,16 +1535,15 @@ ti_stars    ldy #sc_stars
             rts
 ; A=the star's step along its line, Y=star. X=its byte.
 ti_vx       asla
-            adda #VIEW_ROW0
+            adda #SCV_LN0
             tfr a,b
             lda 2,y
-            lsra
             tfr d,x
             rts
             else
 ; Each moves left. A star is written straight to the screen.
 ti_stars    ldy #sc_stars
-            lda #ST_COUNT
+            lda #SC_NSTAR
             sta sc_n
 .next       ldd ,y
             sta sc_tmp
@@ -1504,24 +1552,24 @@ ti_stars    ldy #sc_stars
             std ,y
             cmpa sc_tmp
             beq .on
-            adda #VIEW_COL0
+            adda #SCH_C0
             ldb 2,y
             tfr d,x
             lda #$77
             sta ,x
             lda sc_tmp
-            adda #VIEW_COL0
+            adda #SCH_C0
             ldb 2,y
             tfr d,x
             clr ,x
             bra .on
 .off        lda sc_tmp
-            adda #VIEW_COL0
+            adda #SCH_C0
             ldb 2,y
             tfr d,x
             clr ,x
             jsr ti_star_new
-            lda #VIEW_COL0+VIEW_COLS-1
+            lda #SCH_C0+SCH_NC-1
             ldb 2,y
             tfr d,x
             lda #$77
