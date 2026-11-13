@@ -444,6 +444,9 @@ CLASS_END   equ $BB00
 wiz_ram     equ $BD00       ; 512 bytes, for the boss
 tl_rooms    equ $BEFC       ; the terrain list's rooms: tl_rooms_lvl, or tl_rooms_boss once a boss exists (after Q_SMALL)
 tl_k        equ $BEFE       ; tl_insert1: the rect's flags, less RECT_HIDE
+; The settings' button masks (settings.asm): which PIA0_B buttons fire, and which jump. Kept past a reset; Cmos_Check sets them.
+map_fire    equ $BF3E
+map_jump    equ $BF3F
 ; In the stack's spare margin above the entities' statics at $BF00. Reset does not clear these. TL_Level clears heal_n.
 HEAL_MAX    equ 4
 hole_rect   equ $BF40       ; a block's rect, made up for the terrain routines
@@ -499,6 +502,7 @@ bz_dirty    equ $BCFB       ; ticks left to redraw its rails, which black covers
 gov_free    equ $BCFC       ; a bolt turret or a turret row is firing: its shots are part of a beat, and the governor leaves them alone
 trial_on    equ $BCFD       ; playing one level from the scores
 trial_new   equ $BCFE       ; the level with a record just set, for the scores to show
+adv_req     equ $BBFF       ; Advance was pressed: the title opens the settings
 dl_gen      equ $BCFF       ; counts display list swaps: an entry kept from the list before last is out of date
 lv_exit     equ $BF6E       ; leave for the title: jump at the end of a level, or 1-up held
 up_held     equ $BF6F       ; ticks 1-up has been held in a level

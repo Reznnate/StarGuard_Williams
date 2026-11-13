@@ -136,6 +136,7 @@ trail_shapes incbin "gen/trailshapes.bin"
             org $0000
             incbin "gen/level6.bin"
             include "screens.asm"
+            include "settings.asm"
             assert *<=$4000,"the screens overflow bank 6"
             endbank
             bank 7

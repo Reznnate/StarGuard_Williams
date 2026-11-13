@@ -54,7 +54,10 @@ BTN_START2  equ $20
 IN2_COIN1   equ $10
 IN2_COIN2   equ $20
 IN2_COIN3   equ $04
-; 49-way axis codes, 7 positions: 0000 full left/up, 0100, 0110, 0111 center, 1011, 1001, 1000 full right/down.
+IN2_AUTOUP  equ $01
+IN2_ADVANCE equ $02
+IN2_HSRESET equ $08         ; High Score Reset
+; 49-way axis codes, 7 positions: 0000, 0100, 0110, 0111 center, 1011, 1001, 1000. X: 0000 is full left. Y: 0000 is full down.
 
 ; RAM
 RAM_START   equ $9700

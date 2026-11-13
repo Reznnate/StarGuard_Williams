@@ -192,7 +192,7 @@ Tick_Begin  ldx #0
             stx <now
             ; falls through
 
-; The stick reports 7 positions per axis: below 7 is left/up, 7 is center, above 7 is right/down.
+; The stick reports 7 positions per axis, 7 the center. inp_dir: -1 left, 1 right. inp_ydir: -1 up, 1 down.
 Input_Read  lda PIA0_A
             tfr a,b
             lsra
@@ -204,13 +204,19 @@ Input_Read  lda PIA0_A
             tfr b,a
             anda #$0F
             bsr .axis
+            nega                ; the Y code runs the other way: 0000 is full down (MAME's 49WAYY is reversed)
             sta <inp_ydir
-            ldb PIA0_B
-            bitb #BTN_ALTJUMP
-            beq .noalt
+            ; The buttons do what the settings say (map_fire, map_jump: by default 1 fires, 2 and 3 jump).
+            lda PIA0_B
+            tfr a,b
+            andb #BTN_START1+BTN_START2
+            bita map_fire
+            beq .nofire
+            orb #BTN_FIRE
+.nofire     bita map_jump
+            beq .nojump
             orb #BTN_JUMP
-.noalt      andb #BTN_JUMP+BTN_FIRE+BTN_START1+BTN_START2
-            lda <inp_buttons
+.nojump     lda <inp_buttons
             coma
             stb <inp_buttons
             anda <inp_buttons

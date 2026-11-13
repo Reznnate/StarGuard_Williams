@@ -496,10 +496,10 @@ Cmos_Check  clr gov_free
             bne .fresh
             decb
             bne .look
-            rts
+            jmp st_masks
 .fresh      ldx #CMOS+4
 .clear      clr ,x+
-            cmpx #CMOS+4+9*CM_LEVEL
+            cmpx #CM_SET_END    ; the scores and the settings
             blo .clear
             ldx #CMOS
             ldu #cm_magic
@@ -508,7 +508,7 @@ Cmos_Check  clr gov_free
             sta ,x+
             decb
             bne .mark
-            rts
+            jmp st_masks
 cm_magic    fcb 5,10,12,4
 
 ; ---- the level's score ---------------------------------------------------------------------------
@@ -1109,7 +1109,10 @@ TI_TIME     equ 360             ; ticks before it shows the scores
 
 ; A=0 to start, 1 for the scores.
 Title_Screen
-            jsr Screen_Begin
+            tst adv_req         ; Advance, here or on an attract screen
+            beq .title
+            jsr Settings_Screen
+.title      jsr Screen_Begin
             ldd <now
             addd #$ACE1
             std sc_seed
@@ -1178,7 +1181,7 @@ Title_Screen
             std sc_timer
             lda <inp_ydir       ; a stick already held is not a push
             sta sc_lasty
-.loop       jsr S_Tick
+.loop       jsr st_tick
             bne .press
             jsr ti_flash_end
             jsr ti_stars
@@ -1215,6 +1218,8 @@ Title_Screen
             jsr sc_show
             lbra Title_Screen
 .press      jsr ti_palette
+            tst adv_req
+            lbne Title_Screen
             lda sc_sel
             beq .go
             tst sc_any
@@ -1382,7 +1387,7 @@ ti_stars    ldy #sc_stars
 ; ---- the story and the bestiary --------------------------------------------------------------------
 ; Z clear if a button ended it. Y=ticks left, on entry.
 sc_wait_tick
-            jsr S_Tick
+            jsr st_tick
             bne .pressed
             lda sc_i
             inca
@@ -1629,6 +1634,8 @@ sc_show     pshs a
             lda <inp_pressed
             bita #SC_BTNS
             bne .press
+            jsr st_adv
+            lbne .back
             jsr sc_keys
             inc sc_flash
             lda sc_flash
