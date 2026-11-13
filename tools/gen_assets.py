@@ -39,7 +39,10 @@ WMS = os.path.dirname(HERE)
 ROOT = os.path.dirname(WMS)
 ASSETS = os.path.join(ROOT, "scripts", "_assets")
 DATA = os.path.join(ROOT, "data")
+# --vertical: to the vertical build's own folder, vertical/, where there is one beside src/.
 OUT = os.path.join(WMS, "src", "gen")
+if "--vertical" in sys.argv and os.path.isdir(os.path.join(WMS, "vertical")):
+    OUT = os.path.join(WMS, "vertical", "src", "gen")
 
 # Index 0 is transparent; the rest come from the game's eight named colors, then opaque black.
 COLORS = {(255, 0, 0): 1, (255, 255, 0): 2, (0, 255, 0): 3, (0, 255, 255): 4, (0, 0, 255): 5, (255, 0, 255): 6,
@@ -108,8 +111,32 @@ def cell_pixels(im, ox, oy, w, h):
     return rows
 
 
-def pack_sprite(rows):
+# The vertical build (--vertical): for a monitor turned as Sinistar's (MAME's ROT270), the game is drawn turned a quarter.
+# A game pixel (x, y) is drawn at screen line x and screen column XM - 1 - y, XM being the level's height in pixels. Every image
+# is turned into a canvas VROT_W pixels wide, at column VROT_W - 1 - y, so that one rule places them all: the draw calls put a
+# canvas whose game top-left is (x, y) at column XM - VROT_W - y, line x. Canvases are at most VROT_W pixels tall.
+VERT = "--vertical" in sys.argv
+VROT_W = 20
+if VERT:
+    # The bezel's bands are pixels when turned (vbezel.asm): pens 10 to 14 are its shades of red and orange, 15 its light.
+    PALETTE[10:16] = [0x01, 0x02, 0x03, 0x05, 0x17, 0x2F]
+
+
+def vrot(rows):
+    h, w = len(rows), len(rows[0])
+    if h > VROT_W:
+        return rows     # the worm's pieces (level 9): not turned yet
+    out = [[0] * VROT_W for _ in range(w)]
+    for y in range(h):
+        for x in range(w):
+            out[x][VROT_W - 1 - y] = rows[y][x]
+    return out
+
+
+def pack_sprite(rows, turned=False):
     """Trim to the bounding box. Returns (bytes, w_bytes, h, ox, oy), or None for a blank cell."""
+    if VERT and not turned:
+        rows = vrot(rows)
     lit = [(x, y) for y, r in enumerate(rows) for x, v in enumerate(r) if v]
     if not lit:
         return None
@@ -118,6 +145,10 @@ def pack_sprite(rows):
     y0 = min(p[1] for p in lit)
     y1 = max(p[1] for p in lit)
     w_bytes = (x1 - x0) // 2 + 1 + 1  # one trailing zero byte for the shifter
+    if VERT and (x1 - x0) % 2 == 0:
+        # The last byte's low pixel is empty on every line, so a shifted blit loses nothing without the spare byte, and
+        # carries nothing into the next line. Turned, the art no longer fits beside the blocks' pages without this.
+        w_bytes -= 1
     out = bytearray()
     for y in range(y0, y1 + 1):
         row = rows[y]
@@ -179,6 +210,16 @@ def worm_pieces(cells):
     c = canvas(8, 18)
     rect(c, 0, 0, 2, 18); spr(c, 4, 1, 3); rect(c, 2, 0, 4, 4); rect(c, 2, 14, 4, 4)
     out["HC"] = c
+    if VERT:
+        # Turned, an image cannot be cut along its lines, as the horizontal build cuts a width's tallest segment to make its
+        # shorter ones. So each shape the wave gives a segment is an image of its own, already turned here: as wide as the
+        # segment is tall, which is more than a canvas of VROT_W, so p2_draw_segment allows for the difference.
+        for w in WORM_TALL:
+            del out[f"S{w}"]
+        for w, v in sorted({worm_segment_shape(p) for p in range(90)}):
+            s = segment(w, v)
+            h = len(s)
+            out[f"V{w}{h}"] = [[s[h - 1 - c][x] for c in range(h)] for x in range(w)]
     return out
 
 
@@ -213,14 +254,17 @@ def build_sprites(plan_from=None):
     # The worm's images, before the small ones fill the gaps they need. Not in the table: wizard.asm writes their display
     # list entries itself.
     for name, rows in worm.items():
-        packed, w, h, ox, oy = pack_sprite(rows)
-        assert ox == 0 and oy == 0, name
+        packed, w, h, ox, oy = pack_sprite(rows, turned=name.startswith("V"))
+        assert VERT or (ox == 0 and oy == 0), name
+        if VERT:
+            worm_at[name] = (bank.put(packed), w, h, ox, oy)
+            continue
         if max(x for r in rows for x, v in enumerate(r) if v) % 2 == 0:
             # An odd number of pixels: the last byte's low pixel is empty, so a shifted blit loses nothing without
             # the spare byte, and carries nothing into the next line.
             packed = b"".join(packed[y * w:y * w + w - 1] for y in range(h))
             w -= 1
-        worm_at[name] = (bank.put(packed), w, h)
+        worm_at[name] = (bank.put(packed), w, h, 0, 0)
     for rows in cells:
         packed = pack_sprite(rows)
         if packed is None:
@@ -234,10 +278,13 @@ def build_sprites(plan_from=None):
             seen[pixels] = addr
         table += bytes([addr >> 8, addr & 255, w, h, ox, oy, 0, 0])
     tables = dict(BLOCK_PAGE=BLOCK_BASE_PAGE, TAB_FLAT=bank.flat)
-    for name, (addr, w, h) in worm_at.items():
+    for name, (addr, w, h, ox, oy) in worm_at.items():
         tables[f"WORM_{name}"] = addr
         tables[f"WORM_{name}_W"] = w
         tables[f"WORM_{name}_H"] = h
+        if VERT:
+            tables[f"WORM_{name}_OX"] = ox
+            tables[f"WORM_{name}_OY"] = oy
     # Each piglet with its flame behind it, in every position the flame has. Most of the flame is hidden, and a piglet is one
     # sprite rather than two.
     tables["PGL_COMP"] = len(table) // ENTRY_SIZE
@@ -350,7 +397,10 @@ class Bank0:
             col = page % BLOCK_COLS
             lines = BLOCK_LINES * BLOCK_TALL if page < BLOCK_COLS else BLOCK_LINES
             for line in range(lines):
-                a, b = (palette_index(px[sx + col * 2 + i, sy + line % BLOCK_LINES]) for i in (0, 1))
+                if VERT:    # turned: the page's pixel p is the block's row 11-p, and the line its column
+                    a, b = (palette_index(px[sx + line % BLOCK_LINES, sy + BLOCK_LINES - 1 - (col * 2 + i)]) for i in (0, 1))
+                else:
+                    a, b = (palette_index(px[sx + col * 2 + i, sy + line % BLOCK_LINES]) for i in (0, 1))
                 a, b = (0 if v == PAL_BLACK else v for v in (a, b))
                 self.data[((BLOCK_BASE_PAGE + page) << 8) + line] = a << 4 | b
             self.free.append((((BLOCK_BASE_PAGE + page) << 8) + lines, (BLOCK_BASE_PAGE + page + 1) << 8))
@@ -737,6 +787,9 @@ def build_level(n, sheet, stats):
         objects.append((SYM_DESTRUCTIBLE, x, y))
     blocks = [(x, y) for s, x, y in objects if s in (SYM_DESTRUCTIBLE, SYM_BURIED)]
     canvas = render_terrain(cells, W, H, sheet)
+    yellow = {p for p, v in canvas.items() if v == 2}     # the regions are worked out in the game's terms
+    if VERT:
+        canvas = {(H * 12 - 1 - y, x): v for (x, y), v in canvas.items()}
     rects, pixels = vectorize(canvas)
     # The terrain the boss changes (tools/boss_terrain.py): its regions' own terrain is cut at their edges and marked
     # RECT_HIDE, and each other look of a region is terrain rects of its own, marked the same. The hide table says, for
@@ -747,13 +800,18 @@ def build_level(n, sheet, stats):
             rom[y][x] = PLATFORM_DESTRUCTIBLE
         elif s in (SYM_EXPLODE_ONCE, SYM_EXPLODE_RESPAWN):
             rom[y][x] = EXPLODING
-    regions = boss_terrain.build(n, rom, W, H, {p for p, v in canvas.items() if v == 2})
-    rects = cut_opened(rects, [(r[0], r[1], r[2] - r[0], r[3] - r[1]) for r in regions])
+    regions = boss_terrain.build(n, rom, W, H, yellow)
+
+    def rbox(r):
+        """A region's cells as the rects lie: (x, y, w, h) in cells of BLOCK_COLS by BLOCK_LINES."""
+        x0, y0, x1, y1 = r[:4]
+        return (H - y1, x0, y1 - y0, x1 - x0) if VERT else (x0, y0, x1 - x0, y1 - y0)
+    rects = cut_opened(rects, [rbox(r) for r in regions])
     check_rects(rects, pixels)
 
     def region_of(col, row, w, h):
-        for i, (x0, y0, x1, y1) in enumerate(r[:4] for r in regions):
-            if x0 * BLOCK_COLS <= col and col + w <= x1 * BLOCK_COLS and y0 * BLOCK_LINES <= row and row + h <= y1 * BLOCK_LINES:
+        for i, (bx, by, bw, bh) in enumerate(rbox(r) for r in regions):
+            if bx * BLOCK_COLS <= col and col + w <= (bx + bw) * BLOCK_COLS and by * BLOCK_LINES <= row and row + h <= (by + bh) * BLOCK_LINES:
                 return i
         raise SystemExit(f"level {n}: a hidden rect at {col}, {row} is in no region")
     hide = {r: (region_of(*r[:4]), 1) for r in rects if r[5] & RECT_HIDE}
@@ -773,6 +831,8 @@ def build_level(n, sheet, stats):
                 for j in range(y, y + h):
                     for q in range(x, x + w):
                         look[(q, j)] = 2
+            if VERT:
+                look = {(H * 12 - 1 - y, x): v for (x, y), v in look.items()}
             look_rects, look_pixels = vectorize(look)
             check_rects(look_rects, look_pixels)
             for col, row, w, h, sol, ctrl in look_rects:
@@ -783,7 +843,10 @@ def build_level(n, sheet, stats):
     rects += [r for r in hide if not r in set(rects)]
     # Destructible blocks are terrain until a laser hits one. Groups of them are one image, not the 16 rectangles an outline makes.
     groups = block_groups(blocks)
-    rects += [(x * BLOCK_COLS, y * BLOCK_LINES, w * BLOCK_COLS, h * BLOCK_LINES, 0, RECT_IMAGE) for x, y, w, h in groups]
+    if VERT:
+        rects += [((H - y - h) * BLOCK_COLS, x * BLOCK_LINES, h * BLOCK_COLS, w * BLOCK_LINES, 0, RECT_IMAGE) for x, y, w, h in groups]
+    else:
+        rects += [(x * BLOCK_COLS, y * BLOCK_LINES, w * BLOCK_COLS, h * BLOCK_LINES, 0, RECT_IMAGE) for x, y, w, h in groups]
     rects.sort(key=lambda r: (r[0], r[1]))
 
     # Destructible and exploding cells are written into the ROM grid; their objects own them at run time.
@@ -804,7 +867,7 @@ def build_level(n, sheet, stats):
             hi = row[x]
             lo = row[x + 1] if x + 1 < W else 0
             grid.append(hi << 4 | lo)
-    buckets = (W * 12 // 2) // RECT_BUCKET + 2
+    buckets = ((H if VERT else W) * 12 // 2) // RECT_BUCKET + 2
     rect_blob = bytearray()
     for col, row, w, h, solid, ctrl in rects:
         rect_blob += bytes([col >> 8, col & 255, row >> 8, row & 255, w, h, solid, ctrl])
@@ -865,7 +928,7 @@ def build_level(n, sheet, stats):
         regions_at = len(blob)
         blob[22:24] = bytes([regions_at >> 8, regions_at & 255])
         blob += boss_terrain.table(n, regions, regions_at, len(rects), rects_at, {at[r]: v for r, v in hide.items()},
-                                     rom, W)
+                                     rom, W, H if VERT else None)
     if len(blob) > 0x4000:
         raise SystemExit(f"level {n} overflows its bank: {len(blob)}")
     stats.append((n, W, H, len(rects), len(objects), len(blob)))
@@ -896,6 +959,8 @@ ATLAS_GROUPS = (
     (3, (7,)),
     (2, (0, 1, 2, 3, 4, 5, 6, 8)),
 )
+if VERT:    # turned, the word images are bigger: the last level's own go in bank 5 (main.asm)
+    ATLAS_GROUPS = ((1, (9,)), (3, (7,)), (2, (0, 1, 2, 3, 4, 5, 6)), (5, (8,)))
 
 
 def split_words(glyphs):
@@ -933,9 +998,40 @@ def word_image(word, table, sprites):
     return width, height, bytes(data)
 
 
+VB_PIECE = 20       # the vertical build: lines in each piece of a word's image, as tall as any image the still layer had
+
+
+def word_image_v(word, table, sprites):
+    """The vertical build: a word's image turned, as Draw_Sprite turns a canvas VROT_W wide, cut into pieces of VB_PIECE
+    lines laid end to end. Row y of the word is column h-1-y, so the image sits at VROT_W-h in that canvas. A row 5 high is
+    3 bytes, room for the blitter's shift; 6 is 4. Returns (lines, h, bytes); every piece but the last is VB_PIECE lines."""
+    flat = word_image(word, table, sprites)
+    pixels = {}
+    for i, g in enumerate(word):
+        e = table[(FONT2_BASE + g) * ENTRY_SIZE:(FONT2_BASE + g + 1) * ENTRY_SIZE]
+        src, w, h, tx, ty = e[0] << 8 | e[1], e[2], e[3], e[4], e[5]
+        for y in range(h):
+            for b in range(w):
+                v = sprites[src + y * w + b]
+                for n, nib in ((0, v >> 4), (1, v & 15)):
+                    if nib:
+                        pixels[(WORD_ADVANCE * i + tx + b * 2 + n, ty + y)] = nib
+    h = max(y for _, y in pixels) + 1
+    assert h in (5, 6) and h == flat[1], (word, h)
+    assert min(x for x, _ in pixels) >= 0
+    lines = max(x for x, _ in pixels) + 1
+    wb = 3 if h == 5 else 4
+    data = bytearray(wb * lines)
+    for (x, y), nib in pixels.items():
+        c = h - 1 - y
+        data[x * wb + c // 2] |= nib << 4 if c % 2 == 0 else nib
+    assert lines < 256
+    return lines, h, bytes(data)
+
+
 def build_atlas(words, org_end, table, sprites):
     """Lays out unique words so that the last byte is just below org_end. Returns (org, bytes, word -> (src, w, h))."""
-    images = {w: word_image(w, table, sprites) for w in sorted(set(words))}
+    images = {w: (word_image_v if VERT else word_image)(w, table, sprites) for w in sorted(set(words))}
     size = sum(len(v[2]) for v in images.values())
     org = org_end - size
     blob = bytearray()
@@ -978,7 +1074,7 @@ def build_messages(table, sprites):
             if i in index:
                 for w in split_words(g):
                     src, iw, ih = index[i][w]
-                    assert ih in (5, 6) and src < 0x4000, (ih, src)
+                    assert ih in (5, 6) and src < 0x4000 and iw < 256, (ih, src, iw)   # iw: lines, turned
                     strings += bytes([src >> 8 | (0x80 if ih == 6 else 0), src & 255, iw])
         for o in offsets:
             body += bytes([o >> 8, o & 255])
@@ -990,7 +1086,15 @@ def build_messages(table, sprites):
 
 
 def main():
+    global VERT
     os.makedirs(OUT, exist_ok=True)
+    if VERT:
+        # The messages' word images are turned from the glyphs as they are (word_image_v). First, so that the turned
+        # build's files are the ones left written.
+        VERT = False
+        text_table = build_sprites()[0]
+        text_space = SPACE
+        VERT = True
     table, sprites, sheet, terrain = build_sprites()
     with open(os.path.join(OUT, "sprtable.bin"), "wb") as f:
         f.write(table)
@@ -1000,7 +1104,7 @@ def main():
     for n in range(1, 10):
         with open(os.path.join(OUT, f"level{n}.bin"), "wb") as f:
             f.write(build_level(n, sheet, stats))
-    messages, atlases, level_bank = build_messages(table, SPACE)    # fonts may be in either bank 0 or fixed ROM
+    messages, atlases, level_bank = build_messages(text_table, text_space) if VERT else build_messages(table, SPACE)    # fonts may be in either bank 0 or fixed ROM
     with open(os.path.join(OUT, "messages.bin"), "wb") as f:
         f.write(messages)
     for bank, org, blob in atlases:
@@ -1020,6 +1124,9 @@ def main():
         for bank, org, blob in atlases:
             f.write(f"ATLAS{bank}_ORG equ {org}\n")
         f.write("ATLAS_BANKS macro\n fcb " + ",".join(str(b) for b in level_bank[:10]) + "\n endm\n")
+        f.write(f"VROT_W equ {VROT_W}\n")
+        if VERT:
+            f.write(f"VB_PIECE equ {VB_PIECE}\n")
         f.write("HW_PALETTE macro\n fcb " + ",".join(f"${v:02X}" for v in PALETTE) + "\n endm\n")
     print(f"sprite table: {len(table)} bytes, pixels: {len(sprites)} bytes")
     for n, W, H, r, o, b in stats:

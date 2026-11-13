@@ -231,7 +231,7 @@ def build(n, rom, W, H, rom_canvas_yellow):
     return regions
 
 
-def table(n, regions, at, rect_count, rects_at, hide, rom, W):
+def table(n, regions, at, rect_count, rects_at, hide, rom, W, vert_h=None):
     """The region table for the level's bank, at address at. hide: {rect address: (region, looks mask)}.
     A count of regions, the address of the look table (2), the address of the absent list (2), then per region: first and end byte column (2 each), first
     and end line (2 each), the address of its keys, of its readings and of its rects. Keys: a count, then per key its byte
@@ -273,6 +273,8 @@ def table(n, regions, at, rect_count, rects_at, hide, rom, W):
         body += bytes([len(mine)])
         for a in mine:
             body += word(a)
+        if vert_h is not None:      # the vertical build: the box turned, its columns from the game's rows
+            x0, y0, x1, y1 = vert_h - y1, x0, vert_h - y0, x1
         recs += word(x0 * TILE // 2) + word(x1 * TILE // 2) + word(y0 * TILE) + word(y1 * TILE) + word(keys_at)             + word(looks_at) + word(list_at)
     vis_at = base + len(body)
     for i in range(rect_count):

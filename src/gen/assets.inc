@@ -44,6 +44,7 @@ ATLAS2_ORG equ 4688
 ATLAS_BANKS macro
  fcb 2,2,2,2,2,2,2,3,2,1
  endm
+VROT_W equ 20
 HW_PALETTE macro
  fcb $00,$07,$3F,$38,$F8,$C0,$C7,$FF,$00,$00,$00,$00,$00,$00,$00,$00
  endm
