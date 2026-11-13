@@ -1,0 +1,200 @@
+# Objects left out of each level to keep it within the frame budget. level symbol x y (cells), then why. See DESIGN.md.
+3 13 105 18  # trooper: more than 5 in a view
+3 13 110 15  # trooper: more than 5 in a view
+3 13 114 17  # trooper: more than 5 in a view
+3 44 144 20  # resting image: more than 5 in a view
+3 45 5 21  # resting image: more than 5 in a view
+3 45 8 18  # resting image: more than 5 in a view
+3 45 9 18  # resting image: more than 5 in a view
+3 45 13 26  # resting image: more than 5 in a view
+3 45 26 8  # resting image: more than 5 in a view
+3 45 28 8  # resting image: more than 5 in a view
+3 45 28 14  # resting image: more than 5 in a view
+3 45 28 24  # resting image: more than 5 in a view
+3 45 28 25  # resting image: more than 5 in a view
+3 45 29 13  # resting image: more than 5 in a view
+3 45 39 8  # resting image: more than 5 in a view
+3 45 40 7  # resting image: more than 5 in a view
+3 45 40 8  # resting image: more than 5 in a view
+3 45 52 12  # resting image: more than 5 in a view
+3 45 66 10  # resting image: more than 5 in a view
+3 45 83 9  # resting image: more than 5 in a view
+3 45 86 10  # resting image: more than 5 in a view
+3 45 93 9  # resting image: more than 5 in a view
+3 45 112 21  # resting image: more than 5 in a view
+3 45 113 21  # resting image: more than 5 in a view
+3 57 53 12  # bolt turret: more than 5 in a view
+4 12 107 21  # melee: more than 6 in a view
+4 14 105 24  # melee: more than 6 in a view
+4 14 107 24  # melee: more than 6 in a view
+4 19 119 32  # melee: more than 6 in a view
+4 19 213 47  # melee: more than 6 in a view
+4 19 214 46  # melee: more than 6 in a view
+4 24 129 37  # mine: more than 8 in a view
+4 24 132 37  # mine: more than 8 in a view
+4 24 135 37  # mine: more than 8 in a view
+4 40 170 41  # ambush: more than 4 in a view
+4 40 177 39  # ambush: more than 4 in a view
+4 40 192 41  # ambush: more than 4 in a view
+4 40 193 41  # ambush that never gets up: no trigger within 10 cells
+4 43 23 10  # resting image: more than 5 in a view
+4 43 35 10  # resting image: more than 5 in a view
+4 44 25 11  # resting image: more than 5 in a view
+4 44 31 11  # resting image: more than 5 in a view
+4 44 97 23  # resting image: more than 5 in a view
+4 45 20 11  # resting image: more than 5 in a view
+4 45 21 10  # resting image: more than 5 in a view
+4 45 22 11  # resting image: more than 5 in a view
+4 45 30 11  # resting image: more than 5 in a view
+4 45 98 24  # resting image: more than 5 in a view
+4 45 147 40  # resting image: more than 5 in a view
+4 45 185 42  # resting image: more than 5 in a view
+4 61 122 22  # trooper: more than 5 in a view
+6 13 60 41  # trooper: more than 5 in a view
+6 17 81 29  # trooper: more than 5 in a view
+6 17 88 37  # trooper: more than 5 in a view
+6 44 58 22  # resting image: more than 5 in a view
+6 44 62 40  # resting image: more than 5 in a view
+6 45 21 22  # resting image: more than 5 in a view
+6 45 58 23  # resting image: more than 5 in a view
+6 45 61 23  # resting image: more than 5 in a view
+6 45 61 41  # resting image: more than 5 in a view
+6 45 61 45  # resting image: more than 5 in a view
+6 45 63 23  # resting image: more than 5 in a view
+6 45 72 41  # resting image: more than 5 in a view
+6 45 74 40  # resting image: more than 5 in a view
+6 45 74 44  # resting image: more than 5 in a view
+6 45 75 24  # resting image: more than 5 in a view
+6 45 75 44  # resting image: more than 5 in a view
+6 45 76 24  # resting image: more than 5 in a view
+6 45 83 39  # resting image: more than 5 in a view
+6 52 64 20  # piglet: more than 6 in a view
+6 52 66 21  # piglet: more than 6 in a view
+6 54 17 25  # piglet: more than 6 in a view
+6 54 17 32  # piglet: more than 6 in a view
+6 54 64 26  # piglet: more than 6 in a view
+6 54 66 25  # piglet: more than 6 in a view
+7 24 98 23  # mine: more than 8 in a view
+7 24 99 23  # mine: more than 8 in a view
+7 24 100 23  # mine: more than 8 in a view
+7 24 101 23  # mine: more than 8 in a view
+7 24 102 23  # mine: more than 8 in a view
+7 24 105 23  # mine: more than 8 in a view
+7 24 106 23  # mine: more than 8 in a view
+7 24 109 23  # mine: more than 8 in a view
+7 25 40 30  # mine: more than 8 in a view
+7 25 40 34  # mine: more than 8 in a view
+7 25 41 26  # mine: more than 8 in a view
+7 25 41 30  # mine: more than 8 in a view
+7 25 41 34  # mine: more than 8 in a view
+7 25 42 26  # mine: more than 8 in a view
+7 25 42 30  # mine: more than 8 in a view
+7 25 42 34  # mine: more than 8 in a view
+7 25 43 26  # mine: more than 8 in a view
+7 25 43 30  # mine: more than 8 in a view
+7 25 43 34  # mine: more than 8 in a view
+7 25 44 26  # mine: more than 8 in a view
+7 25 45 26  # mine: more than 8 in a view
+7 25 79 42  # mine: more than 8 in a view
+7 25 80 42  # mine: more than 8 in a view
+7 25 81 42  # mine: more than 8 in a view
+7 25 82 42  # mine: more than 8 in a view
+7 25 83 42  # mine: more than 8 in a view
+7 25 84 42  # mine: more than 8 in a view
+7 38 40 17  # ambush: more than 4 in a view
+7 40 21 18  # ambush: more than 4 in a view
+7 40 22 18  # ambush: more than 4 in a view
+7 40 67 45  # ambush: more than 4 in a view
+7 40 68 45  # ambush: more than 4 in a view
+7 41 27 17  # ambush: more than 4 in a view
+7 41 35 27  # ambush: more than 4 in a view
+7 41 63 42  # ambush: more than 4 in a view
+7 45 31 28  # resting image: more than 5 in a view
+7 45 32 28  # resting image: more than 5 in a view
+7 45 33 16  # resting image: more than 5 in a view
+7 45 34 15  # resting image: more than 5 in a view
+7 45 34 17  # resting image: more than 5 in a view
+7 45 35 17  # resting image: more than 5 in a view
+7 45 39 35  # resting image: more than 5 in a view
+7 45 41 27  # resting image: more than 5 in a view
+7 45 41 35  # resting image: more than 5 in a view
+7 45 42 27  # resting image: more than 5 in a view
+7 45 42 31  # resting image: more than 5 in a view
+7 45 42 42  # resting image: more than 5 in a view
+7 45 42 43  # resting image: more than 5 in a view
+7 45 58 44  # resting image: more than 5 in a view
+7 45 58 45  # resting image: more than 5 in a view
+7 45 59 44  # resting image: more than 5 in a view
+7 45 176 19  # resting image: more than 5 in a view
+7 45 178 15  # resting image: more than 5 in a view
+7 45 178 23  # resting image: more than 5 in a view
+7 45 180 19  # resting image: more than 5 in a view
+8 12 65 40  # melee: more than 6 in a view
+8 14 61 29  # melee: more than 6 in a view
+8 17 110 11  # trooper: more than 5 in a view
+8 17 113 14  # trooper: more than 5 in a view
+8 31 43 65  # beam gate: more than 4 in a view
+8 31 45 65  # beam gate: more than 4 in a view
+8 31 46 25  # beam gate: more than 4 in a view
+8 31 51 59  # beam gate: more than 4 in a view
+8 31 53 61  # beam gate: more than 4 in a view
+8 31 55 61  # beam gate: more than 4 in a view
+8 31 62 36  # beam gate: more than 4 in a view
+8 31 101 5  # beam gate: more than 4 in a view
+8 33 49 30  # beam gate: more than 4 in a view
+8 35 46 34  # beam gate: more than 4 in a view
+8 45 13 76  # resting image: more than 5 in a view
+8 45 13 77  # resting image: more than 5 in a view
+8 45 14 77  # resting image: more than 5 in a view
+8 45 15 65  # resting image: more than 5 in a view
+8 45 17 73  # resting image: more than 5 in a view
+8 45 18 73  # resting image: more than 5 in a view
+8 45 19 73  # resting image: more than 5 in a view
+8 45 20 73  # resting image: more than 5 in a view
+8 45 21 73  # resting image: more than 5 in a view
+8 45 22 9  # resting image: more than 5 in a view
+8 45 22 73  # resting image: more than 5 in a view
+8 45 23 73  # resting image: more than 5 in a view
+8 45 24 73  # resting image: more than 5 in a view
+8 45 27 69  # resting image: more than 5 in a view
+8 45 28 63  # resting image: more than 5 in a view
+8 45 28 69  # resting image: more than 5 in a view
+8 45 29 63  # resting image: more than 5 in a view
+8 45 29 73  # resting image: more than 5 in a view
+8 45 30 69  # resting image: more than 5 in a view
+8 45 31 73  # resting image: more than 5 in a view
+8 45 32 73  # resting image: more than 5 in a view
+8 45 33 73  # resting image: more than 5 in a view
+8 45 36 11  # resting image: more than 5 in a view
+8 45 43 12  # resting image: more than 5 in a view
+8 45 48 27  # resting image: more than 5 in a view
+8 45 56 42  # resting image: more than 5 in a view
+8 45 63 14  # resting image: more than 5 in a view
+8 45 64 14  # resting image: more than 5 in a view
+8 45 64 28  # resting image: more than 5 in a view
+8 45 64 29  # resting image: more than 5 in a view
+8 45 65 14  # resting image: more than 5 in a view
+8 45 65 28  # resting image: more than 5 in a view
+8 45 75 27  # resting image: more than 5 in a view
+8 45 94 24  # resting image: more than 5 in a view
+8 45 95 23  # resting image: more than 5 in a view
+8 45 95 24  # resting image: more than 5 in a view
+8 45 107 20  # resting image: more than 5 in a view
+8 45 110 8  # resting image: more than 5 in a view
+8 45 117 11  # resting image: more than 5 in a view
+8 57 68 12  # bolt turret: more than 5 in a view
+8 57 70 12  # bolt turret: more than 5 in a view
+8 57 72 12  # bolt turret: more than 5 in a view
+8 58 67 16  # bolt turret: more than 5 in a view
+8 58 69 16  # bolt turret: more than 5 in a view
+8 58 71 16  # bolt turret: more than 5 in a view
+9 17 148 9  # trooper: more than 5 in a view
+9 17 157 13  # trooper: more than 5 in a view
+9 45 20 33  # resting image: more than 5 in a view
+9 45 21 32  # resting image: more than 5 in a view
+9 45 21 33  # resting image: more than 5 in a view
+9 45 32 15  # resting image: more than 5 in a view
+9 45 38 15  # resting image: more than 5 in a view
+9 45 231 9  # resting image: more than 5 in a view
+9 45 237 9  # resting image: more than 5 in a view
+9 45 260 9  # resting image: more than 5 in a view

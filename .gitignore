@@ -1,0 +1,4 @@
+build/
+romset/
+__pycache__/
+*.zip
