@@ -1211,13 +1211,15 @@ TI_TIME     equ 360             ; ticks before it shows the scores
 
 ; A=0 to start, 1 for the scores.
 Title_Screen
-            jsr Bezel_On        ; any other screen shows the bezel
             tst adv_req         ; Advance, here or on an attract screen
             beq .title
+            jsr Bezel_On        ; the settings show the bezel
             jsr Settings_Screen
-.title      jsr Screen_Begin
-            clr VIDEO_CTRL      ; the title shows none: its stars fill the monitor. Bezel_On brings it back
+            ; The title shows none: its stars fill the monitor. Off at once, before the screen is cleared, which takes a few
+            ; frames. Bezel_On brings it back.
+.title      clr VIDEO_CTRL
             clr bz_dirty
+            jsr Screen_Begin
             ldd <now
             addd #$ACE1
             std sc_seed
