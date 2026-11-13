@@ -4,23 +4,28 @@
 ; The menu reads the buttons as wired, so a bad mapping cannot lock anyone out of it, and it marks each button held, for
 ; checking a harness: so a player button does not change a button's line.
 ; The settings live in the CMOS after the scores, a nibble a button: 0, or anything past ST_NONE, is that button's default.
+; Then a nibble for the bezel: ST_OFF turns it off, anything else leaves it on.
 
 CM_SET      equ CMOS+4+9*CM_LEVEL
 ST_BUTTONS  equ 3
-CM_SET_END  equ CM_SET+ST_BUTTONS
+CM_BEZEL    equ CM_SET+ST_BUTTONS
+CM_SET_END  equ CM_BEZEL+1
             assert CM_SET_END<=CMOS+$400,"the settings overflow the CMOS"
 ST_FIRE     equ 1               ; what a button does
 ST_JUMP     equ 2
 ST_NONE     equ 3
-ST_LINES    equ 6               ; the lines: the three buttons, then these
-ST_RESET    equ 3
-ST_DEFAULTS equ 4
-ST_EXIT     equ 5
+ST_ON       equ 1               ; the bezel
+ST_OFF      equ 2
+ST_LINES    equ 7               ; the lines: the three buttons, then these
+ST_BEZEL    equ 3
+ST_RESET    equ 4
+ST_DEFAULTS equ 5
+ST_EXIT     equ 6
 ST_X        equ 24              ; on the original's 192x108 screen, as S_Text takes them
 ST_VX       equ 116
 ST_HX       equ 158             ; the mark for a button held
 ST_Y        equ 22
-ST_STEP     equ 10
+ST_STEP     equ 9               ; so that the last line is clear of the help below
 ST_COLOR_HELD equ $33           ; green, both pixels
 
 st_ln       equ ent_pool+240    ; st_line: the line
@@ -66,6 +71,12 @@ st_masks    clr map_fire
             sta map_jump
 .on         decb
             bpl .next
+            rts
+
+; Z set if the bezel is turned off. Keeps B, X, Y, U.
+st_bzoff    lda CM_BEZEL
+            anda #$0F
+            cmpa #ST_OFF
             rts
 
 ; Z clear if Advance is down, and then the title opens the settings.
@@ -206,7 +217,20 @@ Settings_Screen
             lda sc_sel
             jsr st_line
             bra .ding
-.action     tst st_btn
+.action     cmpa #ST_BEZEL
+            bne .act
+            tst st_chg          ; the bezel: the stick or any button turns it on or off
+            bne .bz
+            tst st_btn
+            lbeq .loop
+.bz         ldb #ST_OFF
+            jsr st_bzoff
+            bne .bzset
+            ldb #ST_ON
+.bzset      stb CM_BEZEL
+            jsr Bezel_On        ; shows it or hides it at once
+            bra .redraw
+.act        tst st_btn
             lbeq .loop
             cmpa #ST_EXIT
             beq .exit
@@ -225,11 +249,12 @@ Settings_Screen
             sta sc_mode
             bra .redraw
 .defaults   ldx #CM_SET
-            ldb #ST_BUTTONS
+            ldb #CM_SET_END-CM_SET
 .dclr       clr ,x+
             decb
             bne .dclr
             jsr st_masks
+            jsr Bezel_On
             lda #2
             sta sc_mode
             jsr st_all
@@ -284,13 +309,20 @@ st_line     sta st_ln
             jsr S_Text
             lda st_ln
             cmpa #ST_BUTTONS
-            bhs .act
+            bhs .bezel
             tfr a,b
             jsr st_get
             deca
             asla
             ldx #st_funcs
             ldu a,x
+            bra .value
+.bezel      cmpa #ST_BEZEL
+            bne .act
+            ldu #st_txton
+            jsr st_bzoff
+            bne .value
+            ldu #st_txtoff
             bra .value
 .act        cmpa sc_sel
             bne .out
@@ -336,7 +368,7 @@ st_held     jsr st_raw_read
             blo .each
 .same       rts
 
-st_labels   fdb st_txtb1,st_txtb2,st_txtb3,st_txtreset,st_txtdef,st_txtexit
+st_labels   fdb st_txtb1,st_txtb2,st_txtb3,st_txtbezel,st_txtreset,st_txtdef,st_txtexit
 st_funcs    fdb st_txtfire,st_txtjump,st_txtnone
 st_txthead  fcc "ADVANCED SETTINGS"
             fcb 0
@@ -350,6 +382,8 @@ st_txtb2    fcc "BUTTON 2"
             fcb 0
 st_txtb3    fcc "BUTTON 3"
             fcb 0
+st_txtbezel fcc "BEZEL"
+            fcb 0
 st_txtreset fcc "RESET HIGH SCORES"
             fcb 0
 st_txtdef   fcc "RESTORE DEFAULTS"
@@ -361,6 +395,10 @@ st_txtfire  fcc "FIRE"
 st_txtjump  fcc "JUMP"
             fcb 0
 st_txtnone  fcc "NONE"
+            fcb 0
+st_txton    fcc "ON"
+            fcb 0
+st_txtoff   fcc "OFF"
             fcb 0
 st_txtsure  fcc "SURE?"
             fcb 0

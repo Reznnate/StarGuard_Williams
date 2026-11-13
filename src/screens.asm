@@ -1989,8 +1989,22 @@ Bezel_On    ldx #COLOR0_TABLE+1
             sta bz_save
             lda #2
             sta bz_dirty
-            lda #1
-            sta VIDEO_CTRL
+            ldb #1
+            jsr st_bzoff
+            bne .show
+            clr VIDEO_CTRL      ; turned off in the settings: the table is not used, and the rails, if drawn, go
+            clr BLIT_SOLID
+            ldx #(VIEW_COL0-1)*256+VIEW_ROW0-1
+            stx BLIT_DST
+            ldx #256+VIEW_H+2
+            stx BLIT_W
+            lda #BC_SOLID+BC_DST256
+            sta BLIT_CTRL
+            ldx #(VIEW_COL0+VIEW_COLS)*256+VIEW_ROW0-1
+            stx BLIT_DST
+            sta BLIT_CTRL
+            rts
+.show       stb VIDEO_CTRL
             rts
 bz_band
             fcb $F8,$FF,$FD,$FC,$FD,$FD,$FC,$FD,$FD,$FD,$FB,$FE,$FE,$FE,$FE,$FB

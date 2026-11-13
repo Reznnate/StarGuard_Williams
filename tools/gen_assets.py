@@ -665,9 +665,10 @@ FAR_REACH = 254      # entities.asm's prefill places shots up to GTC_AGE_MAX tic
 
 
 def far_rows(cells, W, H, objects):
-    """GroupedTurretController rows that fire sideways (a PLATFORM left or right of the first cell, as nt_heading
-    finds it), as (object index, lowest camera x, highest camera x). The range covers the row and its shots' path
-    to the first PLATFORM or block, up to FAR_REACH, with the spawner's margin either side."""
+    """GroupedTurretController rows, as (object index, lowest camera x, highest camera x). A row that fires sideways (a
+    PLATFORM left or right of the first cell, as nt_heading finds it): the range covers the row and its shots' path to
+    the first PLATFORM or block, up to FAR_REACH. A row along a ceiling or floor: the range covers the whole row. Both
+    with the spawner's margin either side."""
     def cell(x, y):
         return cells[y][x] if 0 <= x < W and 0 <= y < H else PLATFORM
 
@@ -677,6 +678,14 @@ def far_rows(cells, W, H, objects):
             continue
         hx = 1 if cell(x - 1, y) == PLATFORM else -1 if cell(x + 1, y) == PLATFORM else 0
         if not hx:
+            # A row along a ceiling or floor runs right from the controller, as GroupedTurretController_New counts it:
+            # made only near the controller, its far end would appear in view all at once.
+            hy = 1 if cell(x, y - 1) == PLATFORM else -1
+            n = 0
+            while n < 32 and cell(x + n, y - hy) == PLATFORM and cell(x + n, y) == EMPTY:
+                n += 1
+            if n > 1:
+                out.append((i, max(0, x * 12 - FAR_NEAR_X), (x + n) * 12 + FAR_NEAR_X))
             continue
         reach, k = 0, 0
         while cell(x - hx, y + k) == PLATFORM and cell(x, y + k) == EMPTY:

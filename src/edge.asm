@@ -158,8 +158,7 @@ rem_relist  pshs u
 BZ_LIGHT    equ $2F^$FF         ; the light that runs out from the window: amber
 BZ_RAIL     equ $11             ; red
 ; Once a tick after Present. The light costs a few writes to the line colors. The rails cost nothing unless a black cover has been near them.
-Bezel_Tick  lda <now+1
-            lsra
+Bezel_Tick  jsr bz_gate
             bcs .rails
             ldx #COLOR0_TABLE
             ldy #COLOR0_TABLE+255

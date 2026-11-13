@@ -1,5 +1,17 @@
 ; The game flow: Main.as's states, on the fixed tick. Fixed ROM.
 
+; Bezel_Tick's first step, here where there is room: A=the tick halved, carry set on an odd tick. If the bezel is turned off
+; in the settings, returns from Bezel_Tick instead: neither the light nor the rails.
+bz_gate     lda CM_BEZEL
+            anda #$0F
+            cmpa #ST_OFF
+            beq .off
+            lda <now+1
+            lsra
+            rts
+.off        leas 2,s
+            rts
+
 ; ---- start ------------------------------------------------------------------------------------
 game_start  lda #1
             sta <game_level
