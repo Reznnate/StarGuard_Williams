@@ -225,8 +225,6 @@ vbz_quick   lda CM_BEZEL
             lda <now+1
             bita #31
             beq .far            ; band 0 is drawn whole
-            tst bz_dirty
-            bne .far            ; the rails
             lda vbz_clo
             anda vbz_plo
             inca

@@ -2,9 +2,8 @@
 ; (Bezel_On, Bezel_Tick); turned, those lines run across the window, so here the bands are pixels, in the columns either side
 ; of it, in pens 10 to 15 (gen_assets.py --vertical gives them their colors). Band 0 is the red line next to the window, as
 ; there. The rest start VBZ_SKIP pixels further out, past anything that may cross the window's edge: no image is wider than 7
-; bytes and a black cover is one wider, so the covers and the erasing of what crosses the edge reach only band 0 and the
-; rails, which are drawn again after them as the normal build's rails are (bz_dirty). Drawn on a level's first tick, on a
-; clear screen; any screen clears it again (Screen_Clear clears vbz_on). The screens show none: they use the whole monitor.
+; bytes and a black cover is one wider, so the covers and the erasing of what crosses the edge reach only band 0,
+; which is drawn again after them. Drawn on a level's first tick, on a clear screen; any screen clears it again (Screen_Clear clears vbz_on). The screens show none: they use the whole monitor.
 vbz_on      equ bz_save         ; nonzero while the bezel is on the screen
 VBZ_N       equ 67              ; bands, as bz_band
 VBZ_LN0     equ 7               ; the lines the monitor shows
@@ -18,7 +17,7 @@ VBZ_SKIP    equ 15              ; band 1 on, as much further out again: band 1 i
             assert VBZ_PXR+VBZ_SKIP+VBZ_N-1<=297,"the bands run off the right of what the monitor shows"
 
 ; Once a tick after Present, in a level. The bands are still: from the window out they fade from pen 10 to pen 15, dark red to
-; amber, so after the first tick only band 0 and the rails are ever drawn again.
+; amber, so after the first tick only band 0 is ever drawn again. No rails across the window's ends: the bands frame it.
 vbz_tick    tst vbz_on
             beq vbz_draw
             ; Band 0 where black covers have been, this tick or the last, whose covers are erased this tick. Every 32 ticks all
@@ -54,14 +53,9 @@ vbz_tick    tst vbz_on
             std vbz_plo
             ldd #$FF00
             std vbz_clo
-            ; The rails, for two ticks after a cover.
-            tst bz_dirty
-            beq .out
-            dec bz_dirty
-            bra vbz_rails
-.out        rts
+            rts
 
-; Every band, and the rails.
+; Every band.
 vbz_draw    jsr vbz_all
             ldb #VBZ_N-1
 .next       pshs b
@@ -76,20 +70,6 @@ vbz_draw    jsr vbz_all
             ldd #$FF00          ; no covers yet
             std vbz_clo
             std vbz_plo
-; The rails across the window's ends: two lines each, as the normal build's are two pixels wide.
-vbz_rails   lda #$11
-            sta BLIT_SOLID
-            ldd #(VIEW_COL0-1)*256+VIEW_ROW0-2
-            std BLIT_DST
-            ldd #(VIEW_COLS+2)*256+2
-            std BLIT_W
-            lda #BC_SOLID+BC_DST256
-            sta BLIT_CTRL
-            ldd #(VIEW_COL0-1)*256+VIEW_BOTTOM
-            std BLIT_DST
-            lda #BC_SOLID+BC_DST256
-            sta BLIT_CTRL
-            clr BLIT_SOLID
             rts
 
 ; vbz_px's lines: all the monitor shows.
