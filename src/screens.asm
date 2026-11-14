@@ -1123,8 +1123,8 @@ Title_Screen
             ; The title shows none: its stars fill the monitor. Off at once, before the screen is cleared, which takes a few
             ; frames. Bezel_On brings it back.
 .title      clr VIDEO_CTRL
-            clr bz_dirty
             jsr Screen_Begin
+            clr bz_dirty        ; and the rails, which clearing the screen marks to be drawn again
             ldd <now
             addd #$ACE1
             std sc_seed
