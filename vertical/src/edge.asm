@@ -223,8 +223,8 @@ vbz_quick   lda CM_BEZEL
             tst vbz_on
             beq .far            ; to be drawn
             lda <now+1
-            bita #3
-            beq .far            ; the light moves, or band 0 is drawn whole
+            bita #31
+            beq .far            ; band 0 is drawn whole
             tst bz_dirty
             bne .far            ; the rails
             lda vbz_clo

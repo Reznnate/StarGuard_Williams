@@ -5,7 +5,6 @@
 ; bytes and a black cover is one wider, so the covers and the erasing of what crosses the edge reach only band 0 and the
 ; rails, which are drawn again after them as the normal build's rails are (bz_dirty). Drawn on a level's first tick, on a
 ; clear screen; any screen clears it again (Screen_Clear clears vbz_on). The screens show none: they use the whole monitor.
-vbz_k       equ bz_line         ; the band the light is on
 vbz_on      equ bz_save         ; nonzero while the bezel is on the screen
 VBZ_N       equ 67              ; bands, as bz_band
 VBZ_LN0     equ 7               ; the lines the monitor shows
@@ -13,32 +12,15 @@ VBZ_LNS     equ 240
 VBZ_PXL     equ VIEW_COL0*2-1   ; band 0, left: the pixel next to the window. Band k is k pixels further out
 VBZ_PXR     equ (VIEW_COL0+VIEW_COLS)*2
 VBZ_SKIP    equ 15              ; band 1 on, as much further out again: band 1 is 8 byte columns from the window
-VBZ_LIGHT   equ $FF             ; pen 15: the light that runs out from the window, amber
             assert VBZ_PXL-VBZ_SKIP-1<=(VIEW_COL0-8)*2+1,"band 1 within reach of what crosses the window's edge"
             assert VBZ_PXR+VBZ_SKIP+1>=(VIEW_COL0+VIEW_COLS+8)*2,"band 1 within reach of what crosses the window's edge"
             assert VBZ_PXL-VBZ_SKIP-(VBZ_N-1)>=6,"the bands run off the left of what the monitor shows"
             assert VBZ_PXR+VBZ_SKIP+VBZ_N-1<=297,"the bands run off the right of what the monitor shows"
 
-; Once a tick after Present, in a level. The light moves two bands out every fourth tick: as fast as the normal build's, which
-; moves one every other tick, at half the cost, each move being four blits the height of the screen.
+; Once a tick after Present, in a level. The bands are still: from the window out they fade from pen 10 to pen 15, dark red to
+; amber, so after the first tick only band 0 and the rails are ever drawn again.
 vbz_tick    tst vbz_on
             beq vbz_draw
-            lda <now+1
-            anda #3
-            bne .mend
-            jsr vbz_all
-            ldb vbz_k
-            ldx #vbz_pen
-            lda b,x
-            lbsr vbz_band        ; the light's band gets its own color back
-            ldb vbz_k
-            addb #2
-            cmpb #VBZ_N
-            blo .keep
-            ldb #1
-.keep       stb vbz_k
-            lda #VBZ_LIGHT
-            lbsr vbz_band
             ; Band 0 where black covers have been, this tick or the last, whose covers are erased this tick. Every 32 ticks all
             ; of it: an image in the still layer is erased whenever it goes, with no cover then.
 .mend       lda <now+1
@@ -91,7 +73,6 @@ vbz_draw    jsr vbz_all
             bpl .next
             lda #1
             sta vbz_on
-            sta vbz_k
             ldd #$FF00          ; no covers yet
             std vbz_clo
             std vbz_plo
@@ -152,11 +133,11 @@ vbz_px      sta BLIT_SOLID
             clr BLIT_SOLID
             rts
 
-; Each band's pen, from bz_band's colors: 01 pen 10, 02 pen 11, 03 pen 12, 04 to 06 pen 13 (05), 07 pen 1 (the game's red),
-; 0F to 1F pen 14 (17). Pen 15 is the light. Seven pens for the normal build's ten shades: those were all that were free.
-vbz_pen     fcb $11,$00,$BB,$CC,$BB,$BB,$CC,$BB,$BB,$BB,$DD,$AA,$AA,$AA,$AA,$DD
-            fcb $AA,$AA,$AA,$AA,$AA,$DD,$00,$00,$00,$00,$00,$00,$DD,$00,$00,$00
-            fcb $00,$00,$00,$00,$11,$00,$00,$00,$00,$00,$00,$00,$00,$EE,$00,$00
-            fcb $00,$00,$00,$00,$00,$00,$00,$EE,$00,$00,$00,$00,$00,$00,$00,$00
-            fcb $00,$00,$EE
+; Each band's pen: band 0 the game's red (pen 1), then pens 10 to 15 from the window out, neighbouring pens mixed where
+; they meet so that the fade has no hard steps.
+vbz_pen     fcb $11,$AA,$AA,$AA,$AA,$BB,$AA,$BB,$AA,$BB,$AA,$BB,$BB,$BB,$BB,$BB
+            fcb $BB,$BB,$CC,$BB,$CC,$BB,$CC,$BB,$CC,$CC,$CC,$CC,$CC,$CC,$CC,$DD
+            fcb $CC,$DD,$CC,$DD,$CC,$DD,$DD,$DD,$DD,$DD,$DD,$DD,$EE,$DD,$EE,$DD
+            fcb $EE,$DD,$EE,$EE,$EE,$EE,$EE,$EE,$EE,$FF,$EE,$FF,$EE,$FF,$EE,$FF
+            fcb $FF,$FF,$FF
             assert *-vbz_pen==VBZ_N,"a pen for every band"
