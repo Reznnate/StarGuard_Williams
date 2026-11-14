@@ -15,7 +15,11 @@ p2_seg_table
 
 ; DrawSelf. The C draws 36 segments of 5 entries each, 180 in all. Only the part in view is drawn here, the mouth in full
 ; and at most P2_MAX_SEGS segments behind it, in 3 entries for the head and 1 or 2 a segment.
-p2_draw     lda #COLOR_RED
+p2_draw
+            if VERT
+            pshs u              ; p2_put takes U for an image's record
+            endif
+            lda #COLOR_RED
             sta <draw_color
             lda E_FLAGS,u
             bita #EF_FLASHING
@@ -79,7 +83,7 @@ p2_draw     lda #COLOR_RED
             ; The cursor is the right end of the next segment. Left of the view: everything further back is too.
 .seg        ldd wd_cur
             cmpd <gcam_left
-            blt .done
+            blt .count
             ldx wd_p
             subb ,x
             sbca #0
@@ -107,7 +111,7 @@ p2_draw     lda #COLOR_RED
             bra .next
 .body       jsr p2_draw_segment
             dec wd_n
-            beq .done
+            beq .count
 .next       ldx wd_p            ; 0.1 of the period on
             leax 27,x
             cmpx #p2_seg_table+270
@@ -118,7 +122,20 @@ p2_draw     lda #COLOR_RED
             lda wq_i
             cmpa #36            ; P2_SEGMENT_COUNT
             lblo .seg
+.count
+            if VERT
+            ldx <dl_new         ; how many images p2_put listed, from where the list has come down to
+            leax (DL_ENTRIES-1)*DL_SIZE,x
+            tfr x,d
+            subd wq_cx
+            lsrb
+            lsrb
+            lsrb
+            stb DL_WM_N-(DL_ENTRIES-1)*DL_SIZE,x
+.done       puls u,pc
+            else
 .done       rts
+            endif
 
 ; The worm is drawn from images that gen_assets bakes from the original's sprites 288-292 (see worm_pieces there), one
 ; color, the same pixels as the C's 5 draws a segment and 10 for the head. Per width: its tallest segment.
@@ -144,6 +161,15 @@ p2_vimg     fdb WORM_V636
 ; By width, 6 to 9: its first image in p2_vimg, and then its tallest segment.
 p2_vfirst   fcb 0,3,5,7
             fcb 36,32,30,28
+; Each image's record, by its place in p2_vimg.
+p2_vptr     fdb p2_vimg,p2_vimg+6,p2_vimg+12,p2_vimg+18,p2_vimg+24,p2_vimg+30,p2_vimg+36,p2_vimg+42
+; The head's three images: its top, bottom and middle.
+p2_vhead    fdb WORM_HT
+            fcb WORM_HT_W,WORM_HT_H,WORM_HT_OX,WORM_HT_OY
+            fdb WORM_HB
+            fcb WORM_HB_W,WORM_HB_H,WORM_HB_OX,WORM_HB_OY
+            fdb WORM_HC
+            fcb WORM_HC_W,WORM_HC_H,WORM_HC_OX,WORM_HC_OY
 
 ; wd_x, wd_y, wd_w, wd_h. The image is as wide as the segment is tall, and p2_put places a canvas VROT_W wide: the
 ; difference is allowed for in the y it is given.
@@ -156,22 +182,15 @@ p2_draw_segment
             suba wd_h
             lsra
             adda ,x
-            ldb #6
-            mul
-            ldx #p2_vimg
-            abx
-            ldd ,x
-            std wq_tx
-            ldd 2,x
-            std wq_ty
-            ldd 4,x
-            std wq_o
+            asla
+            ldx #p2_vptr
+            ldu a,x
             ldb wd_h
             subb #VROT_W
             clra
             addd wd_y
             tfr d,y
-            ldx wd_x
+            ldd wd_x
             lbra p2_put
             else
 p2_simg     fdb WORM_S6
@@ -228,6 +247,29 @@ p2_draw_segment
 
 ; wd_x, wd_y, wd_h. The head: its top and bottom 9 lines, and its middle 18 from h/2-9.
 p2_draw_mouth
+            if VERT
+            ldu #p2_vhead
+            ldy wd_y
+            ldd wd_x
+            bsr p2_put
+            ldu #p2_vhead+6
+            ldb wd_h
+            subb #9
+            clra
+            addd wd_y
+            tfr d,y
+            ldd wd_x
+            bsr p2_put
+            ldu #p2_vhead+12
+            ldb wd_h
+            lsrb
+            subb #9
+            clra
+            addd wd_y
+            tfr d,y
+            ldd wd_x
+            bra p2_put
+            else
             ldd #WORM_HT
             std wq_tx
             ldd #WORM_HT_W*256+WORM_HT_H
@@ -271,30 +313,80 @@ p2_draw_mouth
             ldx wd_x
             ; fall through
 
-; One image into the display list, as Draw_ColoredSprite does it: X, Y = world x, y of its top left, wq_tx = its pixels,
-; wq_ty = bytes a line and lines, wd_g = the color in both pixels. Keeps U.
-p2_put
+            endif
+
             if VERT
-            ; Turned, as Draw_Sprite: the column from y, vert_xm - VROT_W - y + its column in the canvas, and the line from x.
-            pshs x
+; One image into the worm's own list, turned as Draw_Sprite places it: U=the image's record (pixels, bytes a line, lines,
+; column and line in its VROT_W canvas), Y=world y of the canvas's top, D=world x. The column is from y, vert_xm - VROT_W
+; - y + its column in the canvas, and the line from x. wd_g = the color in both pixels. p2_draw counts what is listed.
+p2_put      subd <spr_oy
+            addb 5,u
+            adca #0
+            std wq_ty           ; the line, before the 12 above the view
             tfr y,d
             coma
             comb
             addd <vk
-            addb wq_o
+            addb 4,u
             adca #0
-            puls y              ; the game's x, for the line
             ldx wq_cx           ; into the worm's own list, which p2_draw made room for
             leax -DL_SIZE,x
             cmpx <dl_limit
             blo .out
+            lsra
+            rorb
+            tsta
+            bne .out
+            stb 2,x
+            lda #BC_DST256+BC_FG_ONLY+BC_SOLID
+            bcc .even
+            lda #BC_DST256+BC_FG_ONLY+BC_SOLID+BC_SHIFT
+.even       sta 6,x
+            cmpb #VIEW_COL0+VIEW_COLS
+            bhs .out
+            addb 2,u
+            cmpb #VIEW_COL0
+            bls .out
+            ldd wq_ty
+            tsta
+            bne .out
+            subb #12
+            blo .out
+            stb 3,x
+            cmpb #VIEW_BOTTOM
+            bhs .out
+            addb 3,u
+            cmpb #VIEW_ROW0
+            bls .out
+            ldd ,u
+            std ,x
+            ldd 2,u
+            std 4,x
+            lda wd_g
+            sta 7,x
+            stx wq_cx
+            DL_INSIDE
+.out        rts
+            ; It crosses the window's edge: the black that covers what is outside goes in the display list, which is
+            ; drawn after the worm from where the worm belongs.
+.edge       ldd 2,x
+            sta edge_c
+            stb edge_r
+            ldd 4,x
+            std edge_w
+            ldx #edge_dl
+            stx edge_fn
+            pshs u
+            jsr edge_rects
+            puls u,pc
             else
-            tfr x,d
+; One image into the display list, as Draw_ColoredSprite does it: X, Y = world x, y of its top left, wq_tx = its pixels,
+; wq_ty = bytes a line and lines, wd_g = the color in both pixels. Keeps U.
+p2_put      tfr x,d
             subd <spr_ox
             ldx <dl_newp
             cmpx <dl_limit
             bhs .full
-            endif
             lsra
             rorb
             tsta
@@ -310,10 +402,6 @@ p2_put
             cmpb #VIEW_COL0
             bls .out
             tfr y,d
-            if VERT
-            addb wq_o+1
-            adca #0
-            endif
             subd <spr_oy
             tsta
             bne .out
@@ -331,25 +419,6 @@ p2_put
             std 4,x
             lda wd_g
             sta 7,x
-            if VERT
-            stx wq_cx
-            ldy <dl_new
-            inc DL_WM_N,y
-            DL_INSIDE
-.out        rts
-            ; It crosses the window's edge: the black that covers what is outside goes in the display list, which is
-            ; drawn after the worm from where the worm belongs.
-.edge       ldd 2,x
-            sta edge_c
-            stb edge_r
-            ldd 4,x
-            std edge_w
-            ldx #edge_dl
-            stx edge_fn
-            pshs u
-            jsr edge_rects
-            puls u,pc
-            else
             DL_INSIDE
             leax DL_SIZE,x
             stx <dl_newp
@@ -357,9 +426,8 @@ p2_put
 .edge       pshs u
             jsr dl_edge
             puls u,pc
-            endif
 .full       ldx <dl_dropped
             leax 1,x
             stx <dl_dropped
             rts
-
+            endif
