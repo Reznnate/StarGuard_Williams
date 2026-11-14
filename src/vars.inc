@@ -442,6 +442,11 @@ ram_pools   equ *
 ; Changed cells: 1 bit per cell, ending at $BAFF.
 CLASS_END   equ $BB00
 wiz_ram     equ $BD00       ; 512 bytes, for the boss
+; Phase 3's body copied unchanged to the same place in the list (p3_body_reuse), for pair_lists to pass over whole. Past the
+; columns the screen shows, cleared at reset; pb_ok is cleared again whenever the lists swap, so it holds for one tick.
+pb_ok       equ $9700
+pb_idx      equ $9701       ; its first entry's index, in both lists
+pb_n        equ $9702       ; how many entries
 tl_rooms    equ $BEFC       ; the terrain list's rooms: tl_rooms_lvl, or tl_rooms_boss once a boss exists (after Q_SMALL)
 tl_k        equ $BEFE       ; tl_insert1: the rect's flags, less RECT_HIDE
 ; The settings' button masks (settings.asm): which PIA0_B buttons fire, and which jump. Kept past a reset; Cmos_Check sets them.

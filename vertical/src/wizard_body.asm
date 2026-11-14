@@ -80,6 +80,18 @@ p3_body_reuse
             ldy <dl_newp
             ldd wd_x
             bne .move
+            lda wd_h            ; the same place in both lists and the same color: pair_lists may pass over it whole
+            cmpa wk_idx
+            bne .copy
+            lda 7,u
+            cmpa wd_w
+            bne .copy
+            lda wq_n
+            sta pb_n
+            lda wk_idx
+            sta pb_idx
+            lda #1
+            sta pb_ok
 .copy       pulu d,x
             std ,y
             stx 2,y

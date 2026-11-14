@@ -827,6 +827,7 @@ Present     lda #WATCHDOG_KEY   ; a slow tick should slow the game, not reset th
 .notops     lda <cur_bank
             sta BANK_SELECT
             inc dl_gen
+            clr pb_ok           ; the body's skip was for the list just drawn
             ldd <dl_newp        ; the list just drawn becomes the old one
             std <dl_oldend
             ldx <dl_new
@@ -867,7 +868,20 @@ beam_tops   pshs u
 ; look through the list again. Each guess that an entry left or joined is only a guess: whichever it is, the entries are
 ; then compared in full, so a wrong one costs blits and never a wrong picture.
 pair_lists  pshs u
-            ldx <dl_old
+            ldd #0              ; t0, t5: where the boss's unchanged body starts in the old list and the new, if it does
+            std <t0
+            tst pb_ok
+            beq .nobody
+            ldb pb_idx
+            lda #DL_SIZE
+            mul
+            pshs d
+            addd <dl_old
+            std <t0
+            puls d
+            addd <dl_new
+            std <t5
+.nobody     ldx <dl_old
             ldu <dl_new
             ldy <dl_old
             ldd <dl_oldend
@@ -915,9 +929,27 @@ pair_lists  pshs u
 .f_sized    ldd 6,x
             cmpd 6,u
             bne .f_color
-            leax DL_SIZE,x
+            cmpx <t0
+            beq .f_body
+.f_same     leax DL_SIZE,x
             leau DL_SIZE,u
             dec <t1
+            bne .f_next
+            lbra .rest
+            ; The boss's body, copied unchanged to the same place in both lists: the rest of it needs no compare.
+.f_body     cmpu <t5
+            bne .f_same
+            lda <t1
+            cmpa pb_n
+            blo .f_same
+            suba pb_n
+            sta <t1
+            ldb pb_n
+            lda #DL_SIZE
+            mul
+            leax d,x
+            leau d,u
+            tst <t1
             bne .f_next
             bra .rest
             ; Only the color differs (a boss flashing white when hit): the draw covers exactly the pixels the old image had,
@@ -964,7 +996,7 @@ pair_lists  pshs u
             dec <t2
             tsta
             ble .f_step
-            bra .f_next
+            lbra .f_next
 .f_change   bsr blit_erase
             stu ,y++
             leax DL_SIZE,x
