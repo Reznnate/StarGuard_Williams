@@ -3146,3 +3146,47 @@ still_repair
             stx still_heal
             rts
 
+            if VERT
+; In the fixed ROM here, where there is room; wm_half is in vfast.asm.
+; pair_lists's draws on a level with a boss: the same, with the worm's images moved where the worm belongs in the list.
+; Y=the entries listed to draw, to t1, then the new entries from t2. Ends pair_lists. Everything in the list from the worm's
+; place on is drawn, changed or not: it lies over the worm, which has just been drawn whole, and the black that covers what
+; of the worm is outside the window is there.
+wm_still    ldx <dl_new
+            ldu <dl_newp
+            tst DL_WM_N,x
+            bne .has
+            stu <t5             ; no worm now: what there was of it goes before anything is drawn
+            bsr .worm
+            bra .f_draw
+.has        ldu DL_WM_AT,x
+            stu <t5             ; the worm's place in the list
+.f_draw     cmpy <t1
+            bhs .tail
+            ldu ,y++
+            cmpu <t5
+            bhs .tail
+            jsr blit_draw
+            bra .f_draw
+.tail       ldu <t2
+.t_next     cmpu <t5
+            bhs .place
+            jsr blit_draw
+            leau DL_SIZE,u
+            bra .t_next
+.place      ldx <dl_new
+            tst DL_WM_N,x
+            beq .out
+            bsr .worm
+            ldu <t5
+.all        cmpu <dl_newp
+            bhs .out
+            jsr blit_draw
+            leau DL_SIZE,u
+            bra .all
+.out        puls u,pc
+.worm       clra
+            jsr wm_half
+            lda #1
+            jmp wm_half
+            endif

@@ -70,8 +70,18 @@ vl_flats_line
 ; pair_lists_moved's rule. The old list's images are taken with the new one's, in order: they need not be the same segments,
 ; only all be erased and all be drawn. An erase can cut a new image already taken, a neighbor or one of the head's other
 ; pieces, which is then drawn again. Keeps X, Y, U.
+; The upper half's pass walks both lists once and keeps what belongs to the lower half, in order, as records at WM_RP0
+; (wm_rpe their end): the lower half's pass only plays them back. A record: a byte, $FF for a draw or else how many new
+; images an erase could cut, then the image, then where the new list stood (for a draw, the image again).
+WM_RP0      equ $9710           ; past the columns the screen shows, and cleared at reset
+wm_rpe      equ $970E           ; 0 when there are none
+wm_rpp      equ $970C
+            assert WM_RP0+WM_MAX*2*5<=$9800,"room for a tick's records"
 wm_half     pshs x,y,u
-            sta <t0
+            tsta
+            lbne .replay
+            ldx #WM_RP0
+            stx wm_rpp
             ldx <dl_old
             lda DL_WM_N,x
             sta <t3
@@ -87,12 +97,66 @@ wm_half     pshs x,y,u
             leax -DL_SIZE,x
             lda 3,x
             adda 5,x
-            jsr .half
-            bne .new
-            BLIT_ERASE_X
+            cmpa #BEAM_MID
             tfr y,d
+            bhi .e_keep
+            lbsr .erase
+            bra .new
+.e_keep     bsr .keep
+.new        tst <t4
+            beq .more
+            dec <t4
+            leau -DL_SIZE,u
+            cmpy #3
+            bhs .n_half
+            leay 1,y
+.n_half     lda 3,u
+            adda 5,u
+            cmpa #BEAM_MID
+            bhi .d_keep
+            BLIT_DRAW_U
+            bra .more
+.d_keep     ldb #$FF
+            pshs x
+            tfr u,x
+            bsr .keep
+            puls x
+.more       lda <t3
+            ora <t4
+            bne .pair
+            ldx wm_rpp          ; the records are ready for the lower half
+            stx wm_rpe
+            puls x,y,u,pc
+            ; B=what the record is, X=the image, U=where the new list stands.
+.keep       pshs y
+            ldy wm_rpp
+            stb ,y+
+            stx ,y++
+            stu ,y++
+            sty wm_rpp
+            puls y,pc
+            ; The lower half's pass: the records, in order.
+.replay     ldy #WM_RP0
+            bra .r_test
+.r_next     ldb ,y+
+            ldx ,y++
+            ldu ,y++
             tstb
-            beq .new
+            bmi .r_draw
+            lbsr .erase
+            bra .r_test
+.r_draw     BLIT_DRAW_U
+.r_test     cmpy wm_rpe
+            blo .r_next
+            ldd #0
+            std wm_rpe
+            puls x,y,u,pc
+            ; X=an old image: erased. B=how many new images from U on it could cut: each it does is drawn again. Keeps X, Y, U.
+.erase      pshs b
+            BLIT_ERASE_X
+            puls b
+            tstb
+            beq .e_out
             pshs b,u            ; did that cut any of them? Then it is drawn again
 .h_next     lda 3,x
             adda 5,x
@@ -115,69 +179,5 @@ wm_half     pshs x,y,u
             dec ,s
             bne .h_next
             puls b,u
-.new        tst <t4
-            beq .more
-            dec <t4
-            leau -DL_SIZE,u
-            cmpy #3
-            bhs .n_half
-            leay 1,y
-.n_half     lda 3,u
-            adda 5,u
-            jsr .half
-            bne .more
-            BLIT_DRAW_U
-.more       lda <t3
-            ora <t4
-            lbne .pair
-            puls x,y,u,pc
-            ; A=an image's last line: Z set if it is in the half being done.
-.half       cmpa #BEAM_MID
-            bhi .lower
-            lda <t0
-            rts
-.lower      lda <t0
-            eora #1
-            rts
+.e_out      rts
 
-; pair_lists's draws on a level with a boss: the same, with the worm's images moved where the worm belongs in the list.
-; Y=the entries listed to draw, to t1, then the new entries from t2. Ends pair_lists. Everything in the list from the worm's
-; place on is drawn, changed or not: it lies over the worm, which has just been drawn whole, and the black that covers what
-; of the worm is outside the window is there.
-wm_still    ldx <dl_new
-            ldu <dl_newp
-            tst DL_WM_N,x
-            bne .has
-            stu <t5             ; no worm now: what there was of it goes before anything is drawn
-            bsr .worm
-            bra .f_draw
-.has        ldu DL_WM_AT,x
-            stu <t5             ; the worm's place in the list
-.f_draw     cmpy <t1
-            bhs .tail
-            ldu ,y++
-            cmpu <t5
-            bhs .tail
-            jsr blit_draw
-            bra .f_draw
-.tail       ldu <t2
-.t_next     cmpu <t5
-            bhs .place
-            jsr blit_draw
-            leau DL_SIZE,u
-            bra .t_next
-.place      ldx <dl_new
-            tst DL_WM_N,x
-            beq .out
-            bsr .worm
-            ldu <t5
-.all        cmpu <dl_newp
-            bhs .out
-            jsr blit_draw
-            leau DL_SIZE,u
-            bra .all
-.out        puls u,pc
-.worm       clra
-            jsr wm_half
-            lda #1
-            jmp wm_half
