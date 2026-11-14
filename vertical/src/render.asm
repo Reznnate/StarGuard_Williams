@@ -25,6 +25,17 @@ BLIT_DRAW_U macro
             stb BLIT_SOLID
             sta BLIT_CTRL
             endm
+BLIT_ERASE_XS macro
+            ldd ,x
+            std BLIT_SRC
+            ldd 2,x
+            std BLIT_DST
+            ldd 4,x
+            std BLIT_W
+            lda 6,x
+            ora #BC_SOLID
+            sta BLIT_CTRL
+            endm
 ; In each half, all its erases and then all its draws. Erasing an old entry after drawing a new one cut the new one wherever
 ; the two met, and an entry gained or lost earlier in the list puts every pair out of step: then each image of the boss's
 ; worm was drawn and at once cut by its own old copy, and stayed so for the tick. An entry is the upper half's only if it
@@ -56,6 +67,66 @@ pair_lists_moved
             sty <t1
 .noworm     lda <t0
             endif
+            if VERT
+            ; Loops with the test at the bottom; erases leave the blitter's solid color at 0, so it is set once.
+            tsta
+            bne .lower
+            clr BLIT_SOLID
+            bra .ue_next
+.ue_loop    ldb 3,x
+            addb 5,x
+            bcs .ue_skip
+            cmpb #BEAM_MID
+            bhi .ue_skip
+            BLIT_ERASE_XS
+.ue_skip    leax DL_SIZE,x
+.ue_next    cmpx <dl_oldend
+            blo .ue_loop
+            bra .ud_next
+.ud_loop    ldb 3,u
+            addb 5,u
+            bcs .ud_skip
+            cmpb #BEAM_MID
+            bhi .ud_skip
+            BLIT_DRAW_U
+.ud_skip    leau DL_SIZE,u
+.ud_next    cmpu <PLM_END
+            blo .ud_loop
+            ; The end, or the worm's place: this half's images of the worm, then the rest of the list.
+.done       tst <t2
+            beq .out
+            clr <t2
+            lda <t0
+            jsr wm_half
+            ldd <dl_newp
+            std <t1
+            tst <t0
+            beq .ud_next
+            bra .ld_next
+.out        puls u,pc
+.lower      clr BLIT_SOLID
+            bra .le_next
+.le_loop    ldb 3,x
+            addb 5,x
+            bcs .le_go
+            cmpb #BEAM_MID
+            bls .le_skip
+.le_go      BLIT_ERASE_XS
+.le_skip    leax DL_SIZE,x
+.le_next    cmpx <dl_oldend
+            blo .le_loop
+            bra .ld_next
+.ld_loop    ldb 3,u
+            addb 5,u
+            bcs .ld_go
+            cmpb #BEAM_MID
+            bls .ld_skip
+.ld_go      BLIT_DRAW_U
+.ld_skip    leau DL_SIZE,u
+.ld_next    cmpu <PLM_END
+            blo .ld_loop
+            bra .done
+            else
             tsta
             bne .lower
 .ue_next    cmpx <dl_oldend
@@ -78,22 +149,7 @@ pair_lists_moved
             BLIT_DRAW_U
 .ud_skip    leau DL_SIZE,u
             bra .ud_next
-            if VERT
-            ; The end, or the worm's place: this half's images of the worm, then the rest of the list.
-.done       tst <t2
-            beq .out
-            clr <t2
-            lda <t0
-            jsr wm_half
-            ldd <dl_newp
-            std <t1
-            tst <t0
-            beq .ud_next
-            lbra .ld_next
-.out        puls u,pc
-            else
 .done       puls u,pc
-            endif
 .lower
 .le_next    cmpx <dl_oldend
             bhs .ld_next
@@ -115,6 +171,7 @@ pair_lists_moved
 .ld_go      BLIT_DRAW_U
 .ld_skip    leau DL_SIZE,u
             bra .ld_next
+            endif
 
 ; ---- terrain list ---------------------------------------------------------------------------
 ; Walking the level's rects and clipping each in 16 bits is too slow to do on every camera step. So the rects near the view
@@ -2903,7 +2960,20 @@ still_scroll
             lbra still_scroll_fwd
 
             if VERT
-REM_NEAR_R  equ 32              ; lines kept beyond the view above and below in the lists of remains
+; A=column, B=line an entry at X is drawn at: to edge if still_edge has anything to cover, by its own test. Changes A, B.
+STILL_EDGE_TEST macro edge
+            cmpa #VIEW_COL0
+            blo \edge
+            adda S_W,x
+            cmpa #VIEW_COL0+VIEW_COLS-1
+            bhi \edge
+            cmpb #VIEW_ROW0
+            blo \edge
+            addb S_W+1,x
+            cmpb #VIEW_BOTTOM
+            bhi \edge
+            endm
+REM_NEAR_R  equ 32             ; lines kept beyond the view above and below in the lists of remains
 STILL_LINE_MAX equ REM_NEAR_R/2 ; a step along the lines this big or bigger takes still_pass
 ; The vertical build's commonest move: a few lines, along the lines only. Each image is erased and drawn as still_pass would,
 ; in its order, by still_lmove (vfast.asm), which leaves out what only a sideways move needs. Remains: only those in the lists,
@@ -2930,9 +3000,9 @@ still_lines clr still_band
             beq .lists
             jsr rem_relist
 .lists      ldy #rem_a
-            bsr .list
+            jsr still_rlist
             ldy #rem_b
-            bsr .list
+            jsr still_rlist
             lda #1              ; some may have crossed the middle
             sta rem_half
             ldd rem_accr
@@ -2941,7 +3011,7 @@ still_lines clr still_band
             addd #REM_NEAR_R/2
             cmpd #REM_NEAR_R
             blo .out
-            jsr rem_relist
+            inc rem_dirty       ; listed again before the next tick's drawing, by rem_early
 .out        clr still_work
             rts
             ; Every one, so each must have all its moves first. With none owed there is nothing to give: one not marked
@@ -2956,57 +3026,6 @@ still_lines clr still_band
             ldy still_rhi
             jsr still_lmove
             bra .out
-.list       ldx ,y++
-            beq .done
-            lda S_STATE,x
-            beq .list
-            bita #SS_SHOWN
-            beq .hidden
-            jsr still_erase
-            ldd S_ROW,x
-            subd still_dr
-            std S_ROW,x
-            cmpd #VIEW_BOTTOM
-            bhs .hide
-            addb S_W+1,x
-            cmpb #VIEW_ROW0
-            bls .hide
-            ; The erase left the source and size in the blitter's registers, and the column has not changed.
-            lda S_COL+1,x
-            ldb S_ROW+1,x
-            std BLIT_DST
-            ldd S_CTRL,x
-            stb BLIT_SOLID
-            sta BLIT_CTRL
-            jsr still_edge
-            bra .list
-.hide       lda S_STATE,x
-            anda #~SS_SHOWN&$FF
-            sta S_STATE,x
-            bra .list
-.hidden     ldd S_ROW,x
-            subd still_dr
-            std S_ROW,x
-            cmpd #VIEW_BOTTOM
-            bhs .list
-            addb S_W+1,x
-            cmpb #VIEW_ROW0
-            bls .list
-            ldd S_COL,x
-            beq .col_ok
-            tsta
-            bne .list
-.col_ok     cmpb #VIEW_COL0+VIEW_COLS
-            bhs .list
-            addb S_W,x
-            cmpb #VIEW_COL0
-            bls .list
-            lda S_STATE,x
-            ora #SS_SHOWN
-            sta S_STATE,x
-            jsr still_draw
-            bra .list
-.done       rts
             endif
 
 ; Gives every remains its moves from rem_acc, those in the lists having had them. Keeps U.

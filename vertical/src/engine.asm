@@ -712,6 +712,9 @@ Present     lda #WATCHDOG_KEY   ; a slow tick should slow the game, not reset th
             lda #1
             sta <terrain_on
             clr BANK_SELECT
+            if VERT
+            jsr rem_early       ; the remains' bookkeeping, before the wait rather than in the halves' time
+            endif
             ; Upper half, with the beam in the lower half.
             tst q_nowait
             bne .a_go
