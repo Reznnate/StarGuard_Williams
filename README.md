@@ -5,7 +5,7 @@
 
 # **Star Guard** (prototype rom)
 
-###### developed by Loren Schmidt
+###### original game designed and developed by Loren Schmidt
 
 
 
