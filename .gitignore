@@ -2,3 +2,4 @@ build/
 romset/
 __pycache__/
 *.zip
+tools/roms.cfg

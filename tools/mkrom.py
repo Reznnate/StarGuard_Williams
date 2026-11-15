@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 """Packs an assembled $50000-byte image into a MAME `blaster` romset.
 
-usage: mkrom.py image.bin out_dir [--stock E:/torrent/roms/blaster.zip]
+usage: mkrom.py image.bin out_dir [--stock blaster.zip] [--robotron-sound robotron.zip]
+       mkrom.py image.bin out_dir --game-only
+       mkrom.py starguard_game_roms.zip out_dir [--stock ...] [--robotron-sound ...]
 
-Main ROM files are cut from the image at the offsets MAME's driver loads them. Sound ROMs and the decoder
-PROMs come from your own blaster.zip. blaster.col is replaced by an identity table so that the blitter
-source remap leaves pixel values alone.
+Main ROM files are cut from the image at the offsets MAME's driver loads them. The sound ROM and the decoder PROMs are
+Williams' and are not part of this project: they come from your own romsets. The game's sounds are Robotron's, so its
+sound ROM goes in the Blaster sound sockets; without --robotron-sound, Blaster's own sound ROM stays and the sounds are
+wrong. blaster.col is replaced by an identity table so that the blitter source remap leaves pixel values alone.
+
+Where your romsets are: the options, else the environment variables STARGUARD_BLASTER_ZIP and STARGUARD_ROBOTRON_ZIP,
+else tools/roms.cfg beside this script (not checked in), with lines such as
+    blaster=C:/mame/roms/blaster.zip
+    robotron=C:/mame/roms/robotron.zip
+
+--game-only writes out_dir/starguard_game_roms.zip instead: only the game's own files, which may be passed around. Give
+that zip in place of the image to make a playable blaster.zip from it and your own romsets.
 """
 import argparse
 import os
@@ -23,32 +34,73 @@ MAIN = [
     ("proto6_blaster_3021_rom_3.ic6", 0x3C000, 0x4000),
 ]
 COPIED = ["proto5_blaster_3021_rom_18.sb10", "proto5_blaster_3021_rom_18.sb13", "decoder_rom_4.ic42", "video_decoder_rom_6.ic23"]
+COL = "blaster.col"
+GAME_ZIP = "starguard_game_roms.zip"
+
+
+def configured(key, env):
+    """A romset's path from the environment or tools/roms.cfg; None if neither names one."""
+    if os.environ.get(env):
+        return os.environ[env]
+    cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "roms.cfg")
+    if os.path.exists(cfg):
+        for line in open(cfg):
+            name, _, value = line.partition("=")
+            if name.strip() == key and value.strip():
+                return value.strip()
+    return None
+
+
+def game_files(source):
+    """The game's own files, name -> bytes, from an assembled image or from a zip made with --game-only."""
+    if source.lower().endswith(".zip"):
+        with zipfile.ZipFile(source) as z:
+            return {name: z.read(name) for name in [m[0] for m in MAIN] + [COL]}
+    image = open(source, "rb").read()
+    if len(image) != 0x50000:
+        raise SystemExit(f"image is {len(image)} bytes; assemble with --banked")
+    files = {name: image[address:address + size] for name, address, size in MAIN}
+    files[COL] = bytes(list(range(16)) * 128)
+    return files
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("image")
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("image", help="the assembled image, or a zip made with --game-only")
     ap.add_argument("out_dir")
-    ap.add_argument("--stock", default=r"E:\torrent\roms\blaster.zip")
-    ap.add_argument("--robotron-sound", default=r"E:\torrent\roms\robotron.zip",
-                    help="zip with Robotron's sound ROM, used in the Blaster sound sockets; empty keeps Blaster's")
+    ap.add_argument("--stock", help="your own blaster.zip: the decoder PROMs, and the sound ROM without --robotron-sound")
+    ap.add_argument("--robotron-sound", help="your own robotron.zip: its sound ROM goes in the Blaster sound sockets")
+    ap.add_argument("--game-only", action="store_true", help="write only the game's own files, to " + GAME_ZIP)
     args = ap.parse_args()
-    image = open(args.image, "rb").read()
-    if len(image) != 0x50000:
-        raise SystemExit(f"image is {len(image)} bytes; assemble with --banked")
+    files = game_files(args.image)
     os.makedirs(args.out_dir, exist_ok=True)
+    if args.game_only:
+        path = os.path.join(args.out_dir, GAME_ZIP)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as out:
+            for name, data in files.items():
+                out.writestr(name, data)
+        print("wrote", path)
+        return
+    stock_path = args.stock or configured("blaster", "STARGUARD_BLASTER_ZIP")
+    if not stock_path:
+        raise SystemExit("no blaster.zip named: give --stock, set STARGUARD_BLASTER_ZIP, or write tools/roms.cfg "
+                         "(see the top of mkrom.py). Or use --game-only.")
+    sound_path = args.robotron_sound or configured("robotron", "STARGUARD_ROBOTRON_ZIP")
     path = os.path.join(args.out_dir, "blaster.zip")
-    with zipfile.ZipFile(args.stock) as stock, zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as out:
-        for name, address, size in MAIN:
-            out.writestr(name, image[address:address + size])
+    with zipfile.ZipFile(stock_path) as stock, zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as out:
+        for name, data in files.items():
+            if name != COL:
+                out.writestr(name, data)
         sound = None
-        if args.robotron_sound:
-            with zipfile.ZipFile(args.robotron_sound) as other:
+        if sound_path:
+            with zipfile.ZipFile(sound_path) as other:
                 sound = other.read("video_sound_rom_3_std_767.ic12")
+        else:
+            print("no robotron.zip named: Blaster's own sound ROM is kept, and the game's sounds will be wrong")
         for name in COPIED:
             data = sound if sound and "rom_18" in name else stock.read(name)
             out.writestr(name, data)
-        out.writestr("blaster.col", bytes(list(range(16)) * 128))
+        out.writestr(COL, files[COL])
     print("wrote", path)
 
 
