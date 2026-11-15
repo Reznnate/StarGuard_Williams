@@ -21,19 +21,14 @@
 <img width="260" alt="sg1" src="https://github.com/user-attachments/assets/8e147c3c-90bd-42a1-88af-0c04d5edfbd0" />&nbsp;&nbsp;&nbsp;<img width="260" alt="SG2" src="https://github.com/user-attachments/assets/76934a20-c3da-4b4a-9009-54308cd3a19a" />&nbsp;&nbsp;&nbsp;<img width="260" alt="sg3" src="https://github.com/user-attachments/assets/a241fa3c-7ed3-4d47-824d-d78ab2af3b31" />
 </p>
 
+ 
 ***Playtest Starguard:***  If you'd like to playtest the prototype game using MAME, rename Starguard.zip rom files to blaster.zip and run 'mame.exe blaster -nowindow -lowlatency -skip_gameinfo'
 
 ***Playing notes:***
 - MAME reports wrong checksums for the `blaster` romset, since the ROMs are Star Guard's. That is expected.
 - The advanced settings (button mapping, bezel, high scores) open with the coin door's Advance button on the title screen: F2 with MAME's default keys.
 - A build for a vertical monitor, such as a Sinistar cabinet's, is in [vertical/](vertical/). Play it with `-rol`. Its settings have a SCROLL line (2 PIXEL, 1 PIXEL or NO WAIT), and Advance during a level steps through the three.
-- Known issue: the level 9 boss slows down and flickers in places, more so in the vertical build.
 
-***Building from source:***
-- You need Python 3. `sh build.sh` assembles `src/` with the project's own assembler (`tools/as6809.py`) and packs `romset/blaster.zip`; `sh vertical/build.sh` does the same for the vertical build.
-- A playable romset also needs Williams' sound ROM and decoder PROMs, which are not part of this project. They come from your own `blaster.zip` and `robotron.zip` (the game uses Robotron's sounds). Tell `tools/mkrom.py` where they are with `--stock` and `--robotron-sound`, with the environment variables `STARGUARD_BLASTER_ZIP` and `STARGUARD_ROBOTRON_ZIP`, or in a `tools/roms.cfg` file; the top of `tools/mkrom.py` has the details.
-- `python tools/mkrom.py build/game.bin out --game-only` writes `starguard_game_roms.zip` with only the game's own files. `python tools/mkrom.py starguard_game_roms.zip out` turns that zip into a playable `blaster.zip` using your own romsets.
-- The art, levels and text in `src/gen` are already built, so the steps above are all a build needs. Regenerating them (`python tools/gen_assets.py`, add `--vertical` for the vertical build; needs Pillow) reads the original game's files from the folder that holds this repository: the sprite and font sheets in `scripts/_assets` and the level and message XML files in `data`, as a Flash decompiler unpacks them from the original game. Those files are not in this repository.
 
 <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
   
