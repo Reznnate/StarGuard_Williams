@@ -1515,6 +1515,7 @@ terrain_image
             beq .now
             jsr blk_group_any   ; whole, it is still one image
             beq .now
+            bcs .out            ; none left: nothing to draw
             ldx #terrain_rect
             jmp blk_split
 .queue      tst queue_on
@@ -1608,7 +1609,8 @@ blk_origin  ldd <t3             ; Div12 uses it
             rts
 
 ; Y=a group of blocks' rect. Z clear if any of its blocks has been destroyed: one pass over their changed bits, so a group
-; that is whole is still drawn as one image. Keeps Y, U, t0 to t3.
+; that is whole is still drawn as one image. Carry set too if none is left, so that it is not drawn at all. Keeps Y, U,
+; t0 to t3.
 blk_group_any
             ldd <t3
             pshs d
@@ -1621,6 +1623,8 @@ blk_group_any
             jsr blk_origin
             jsr cell_changed    ; X=its byte, B=its mask
             pshs b,x            ; 0,s the row's first mask, 1,s its byte
+            ldd #0              ; t0: cells, t0+1: blocks still there
+            std <t0
             if VERT
             lda 4,y             ; turned: the game's rows are the rect's columns
             else
@@ -1634,8 +1638,11 @@ blk_group_any
             else
             lda 4,y             ; columns left
             endif
-.cell       bitb ,x
-            bne .hit
+.cell       inc <t0
+            bitb ,x
+            bne .gone
+            inc <t0+1
+.gone
             aslb
             bne .same
             leax 1,x
@@ -1659,11 +1666,10 @@ blk_group_any
             endif
             bne .rows
             leas 3,s
-            clra                ; Z set: all there
-            bra .out
-.hit        leas 4,s
-            lda #1              ; Z clear
-.out        tfr cc,a
+            lda <t0+1           ; carry set if none is left
+            cmpa #1
+            eora <t0            ; Z set if all are there; the carry stays
+            tfr cc,a
             puls x
             stx <t0
             puls x

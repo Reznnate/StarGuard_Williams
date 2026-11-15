@@ -1044,8 +1044,7 @@ ContrailSegment_Update
             bne .out
 .show       lda #COLOR_WHITE
             sta <draw_color
-            ldd #312
-            jmp fx_drawc
+            jmp fx_lowc         ; left out when the display list is nearly full
 .out        rts
 
 ; A=type, B=offsetX, arg0=offsetY, arg1=owner entity. The C reads neither offset.
@@ -1101,11 +1100,7 @@ fx_speck    pshs b
             leas 1,s
             lda #COLOR_WHITE
             sta <draw_color
-            jsr Random
-            andb #1
-            clra
-            addd #312
-            jmp Draw_ColoredSprite
+            jmp fx_lowd         ; left out when the display list is nearly full
 
 ; A=type, B=size, arg0=offset (unused, as in the C), X, Y.
 Distortion_New

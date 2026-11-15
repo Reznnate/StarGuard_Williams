@@ -181,3 +181,52 @@ wm_half     pshs x,y,u
             puls b,u
 .e_out      rts
 
+; Effect_ClearAll (pools.asm), here in the vertical build for room in the fixed ROM at $D000.
+Effect_ClearAll
+            jsr Still_Reset
+            ldd #effect_pool
+            std fx_hi
+            std fx_free
+            ldx #effect_pool
+            ldd #EFFECT_COUNT*EFFECT_SIZE
+.clr        clr ,x+
+            subd #1
+            bne .clr
+            rts
+
+; ---- block groups with blocks gone, on a line step ----
+; Each block group's whole rect used to be erased where it was, then only its blocks still there drawn: the cells gone,
+; where the boss's worm moves through its barrier, were left black until the worm was drawn again, more than a frame later
+; on a long tick, and the worm flashed. So a group with blocks gone is erased block by block, only the blocks still there,
+; and one with none left is not erased at all (Terrain_Hole blanked each as it went). Which it is, is found once a step,
+; here, and kept on the group's pointer in the list for vl_blocks_draw: $80 some gone, $40 none left (rects are below $4000).
+
+; vl_walls_first: U past a group's pointer. The level's bank is selected.
+vb_erase    lda -2,u
+            anda #$3F           ; last step's tag
+            sta -2,u
+            ldy -2,u
+            tst blk_kills
+            lbeq vl_berase
+            jsr blk_group_any   ; Z set: whole; carry set: none left
+            lbeq vl_berase
+            lda #$40
+            bcs .tag
+            ldx #vl_berase
+            jsr blk_split       ; each block still there
+            lda #$80
+.tag        ora -2,u
+            sta -2,u
+            rts
+
+; vl_blocks_draw, with blocks destroyed on the level: U past the group's pointer, Y=it, tagged by vb_erase this step.
+vb_draw     ldd -2,u
+            bita #$C0
+            lbeq vl_bimg        ; whole: one image
+            bita #$40
+            bne .out            ; none left
+            anda #$3F
+            tfr d,y
+            ldx #vl_bimg
+            jmp blk_split       ; each block still there, as an image of its own
+.out        rts

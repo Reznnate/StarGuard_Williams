@@ -418,7 +418,7 @@ tl_insert   lda 7,y
             beq .shown
             jsr [rect_hidden_v]
             bcc .shown
-            rts
+.gone       rts
 .shown      lda 7,y
             bita #RECT_IMAGE
             beq tl_insert1
@@ -427,6 +427,7 @@ tl_insert   lda 7,y
             ; A group with a block gone goes in block by block.
             jsr blk_group_any
             beq tl_insert1
+            bcs .gone           ; none left
             ldx #tl_insert1
             jmp blk_split
 
@@ -1933,6 +1934,34 @@ vl_walls_first
 .blocks     ldu #VL_MID
             clr BLIT_SOLID
             bra .b_test
+            if VERT
+.b_next     leau 2,u
+            jsr vb_erase        ; vfast.asm: the group as it is now, and its tag
+.b_test     cmpu vl_b
+            blo .b_next
+            rts
+
+; Y=a rect: erased where it was (vb_erase).
+vl_berase
+            lda 4,y
+            sta tl_wv
+            lda 5,y
+            sta <t0
+            ldd 2,y
+            subd <old_top
+            jsr vl_lines
+            beq .out
+            ldd ,y
+            subd <old_col
+            jsr tl_span
+            beq .out
+            sta BLIT_W
+            addb #VIEW_COL0
+            stb BLIT_DST
+            lda #BC_SOLID+BC_DST256
+            sta BLIT_CTRL
+.out        rts
+            else
 .b_next     ldy ,u++
             lda 4,y
             sta tl_wv
@@ -1954,6 +1983,7 @@ vl_walls_first
 .b_test     cmpu vl_b
             blo .b_next
             rts
+            endif
 
 ; Floors and everything else that is not a wall or a block, each as a pair.
 vl_flats_all
@@ -2225,6 +2255,58 @@ vl_blocks_draw
 .next       ldy ,u++
             lda <level_bank     ; the rect
             sta BANK_SELECT
+            if VERT
+            tst blk_kills
+            bne .slow
+            bsr vl_bimg
+.test       cmpu vl_b
+            blo .next
+            lda <level_bank
+            sta BANK_SELECT
+.done       rts
+.slow       jsr vb_draw         ; vfast.asm: by the tag vb_erase gave it
+            bra .test
+
+; Y=a group's rect: its image where it is now. The image's bank is left selected.
+vl_bimg
+            lda 4,y
+            sta tl_wv
+            lda 5,y
+            sta <t0
+            ldd 2,y
+            subd <cam_top
+            pshs d
+            jsr vl_lines
+            puls d
+            beq .out
+            tsta
+            bpl .top_in
+            negb
+            bra .top_set
+.top_in     clrb
+.top_set    stb BLIT_SRC+1
+            ldd ,y
+            subd <cam_col
+            pshs d
+            jsr tl_span
+            puls x
+            beq .out
+            sta BLIT_W
+            addb #VIEW_COL0
+            stb BLIT_DST
+            tfr x,d
+            tsta
+            bpl .left_in
+            negb
+            bra .left_set
+.left_in    clrb
+.left_set   addb #BLOCK_PAGE
+            stb BLIT_SRC
+            clr BANK_SELECT     ; the image
+            lda #BC_DST256+BC_SRC256
+            sta BLIT_CTRL
+.out        rts
+            else
             tst blk_kills
             bne .slow
             lda 4,y
@@ -2270,6 +2352,7 @@ vl_blocks_draw
 .done       rts
 .slow       jsr vl_draw
             bra .test
+            endif
 
 ; ---- blit queue -----------------------------------------------------------------------------
 ; A camera step changes everything on screen, and that takes longer than the beam takes to cross it. Drawn as it comes, a

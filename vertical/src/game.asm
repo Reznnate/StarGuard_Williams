@@ -48,6 +48,7 @@ LEVEL_COUNT equ 9
 UP_HOLD     equ 90          ; ticks: 3 seconds
 
 ; Clears the pools, the display lists and the screen.
+            if VERT==0
 Game_Reset  ldx #ent_pool
             stx ent_hi
             stx ent_ask_at
@@ -93,6 +94,7 @@ Game_Reset  ldx #ent_pool
             clr <man_lock
             clr <level_done
             jmp Screen_Clear
+            endif
 
 ; X=start, D=length.
 mem_clear   clr ,x+
@@ -101,7 +103,12 @@ mem_clear   clr ,x+
             rts
 
 ; ---- a level ----------------------------------------------------------------------------------
-Level_Run   jsr Game_Reset
+Level_Run
+            if VERT
+            FAR Game_Reset      ; vbezel.asm, bank 6, for room here
+            else
+            jsr Game_Reset
+            endif
             lda <game_level
             jsr Level_Load
             ; The level header gives the man's start: +16 cell x, +18 cell y, +20 heading (0 right, 1 left).
@@ -164,7 +171,7 @@ Level_Run   jsr Game_Reset
             jsr Present
             PROF 6
             if VERT
-            jsr vbz_quick       ; its bezel is drawn, so only in a level: the screens use the whole monitor
+            FAR vbz_quick       ; its bezel is drawn, so only in a level: the screens use the whole monitor
             else
             jsr Bezel_Tick
             endif

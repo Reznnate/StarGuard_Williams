@@ -121,3 +121,75 @@ vbz_pen     fcb $11,$AA,$AA,$AA,$AA,$BB,$AA,$BB,$AA,$BB,$AA,$BB,$BB,$BB,$BB,$BB
             fcb $EE,$DD,$EE,$EE,$EE,$EE,$EE,$EE,$EE,$FF,$EE,$FF,$EE,$FF,$EE,$FF
             fcb $FF,$FF,$FF
             assert *-vbz_pen==VBZ_N,"a pen for every band"
+
+; In a level, once a tick after Present: vbz_tick, unless it has nothing to do, as on most ticks. Called with FAR (bank 6).
+vbz_quick   lda sc_pia          ; Advance pressed or let go, or the SCROLL hotkey's note showing: sc_hotkey
+            anda #IN2_ADVANCE
+            cmpa sc_adv
+            bne .hot
+            tst sc_note
+            beq .bz
+.hot        jsr sc_hotkey
+.bz         lda CM_BEZEL
+            anda #$0F
+            cmpa #ST_OFF
+            beq .out            ; turned off in the settings
+            tst vbz_on
+            beq .far            ; to be drawn
+            lda <now+1
+            bita #31
+            beq .far            ; band 0 is drawn whole
+            lda vbz_clo
+            anda vbz_plo
+            inca
+            bne .far            ; a cover beside the window, this tick or the last
+.out        rts
+.far        jmp vbz_tick
+
+; Game_Reset (game.asm), here in bank 6 in the vertical build, for room in the fixed ROM: Level_Run calls it with FAR, and
+; the screens, in this bank, as before.
+Game_Reset  ldx #ent_pool
+            stx ent_hi
+            stx ent_ask_at
+            ldx #0
+            stx ban_fresh
+            ldx #ent_pool
+            ldx #laser_pool
+            stx laser_hi
+            ldx #ent_pool
+            ldd #CLASS_END-ent_pool
+            jsr mem_clear
+            ldx #laser_pool
+            ldd #LASER_SIZE*LASER_COUNT
+            jsr mem_clear
+            jsr Effect_ClearAll
+            FAR MessageTrigger_Initialize
+            jsr MessageBanner_ClearBanners
+            ldd #dl_a
+            std <dl_new
+            std <dl_newp
+            addd #DL_ROOM*DL_SIZE
+            std <dl_limit
+            ldd #dl_b
+            std <dl_old
+            std <dl_oldend
+            clr <terrain_on
+            clr <terrain_dirty
+            clr <target_n
+            clr <target_m
+            clr wiz_live
+            clr queue_on
+            clr tl_valid
+            clr tl_wait
+            ldx #reg_ram        ; no region is marked or looks other than as the level began
+            ldb #REG_BYTES
+.regs       clr ,x+
+            decb
+            bne .regs
+            clr <repair_rect
+            clr <repair_rect+1
+            clr <cam_fixed
+            clr <death_cam
+            clr <man_lock
+            clr <level_done
+            jmp Screen_Clear

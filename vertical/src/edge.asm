@@ -215,30 +215,6 @@ Bezel_Tick
             if VERT
             rts                 ; the screens have no bezel when turned: they use the whole monitor. See vbezel.asm
 
-; In a level, once a tick after Present: vbz_tick, unless it has nothing to do, as on most ticks. Saves the far call.
-vbz_quick   lda sc_pia          ; Advance pressed or let go, or the SCROLL hotkey's note showing: sc_hotkey
-            anda #IN2_ADVANCE
-            cmpa sc_adv
-            bne .hot
-            tst sc_note
-            beq .bz
-.hot        FAR sc_hotkey
-.bz         lda CM_BEZEL
-            anda #$0F
-            cmpa #ST_OFF
-            beq .out            ; turned off in the settings
-            tst vbz_on
-            beq .far            ; to be drawn
-            lda <now+1
-            bita #31
-            beq .far            ; band 0 is drawn whole
-            lda vbz_clo
-            anda vbz_plo
-            inca
-            bne .far            ; a cover beside the window, this tick or the last
-.out        rts
-.far        FAR vbz_tick
-            rts
             else
             jsr bz_gate
             bcs .rails

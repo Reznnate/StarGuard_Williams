@@ -324,7 +324,7 @@ tl_insert   lda 7,y
             beq .shown
             jsr [rect_hidden_v]
             bcc .shown
-            rts
+.gone       rts
 .shown      lda 7,y
             bita #RECT_IMAGE
             beq tl_insert1
@@ -333,6 +333,7 @@ tl_insert   lda 7,y
             ; A group with a block gone goes in block by block.
             jsr blk_group_any
             beq tl_insert1
+            bcs .gone           ; none left
             ldx #tl_insert1
             jmp blk_split
 

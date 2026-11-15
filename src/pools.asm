@@ -1579,6 +1579,31 @@ Effect_ClearAll
             bne .clr
             rts
 
+; Contrails and the boss's distortion specks give way when the display list is nearly full: left out while fewer than
+; FX_ROOM entries are free, so that the sparks, shots and text drawn after them keep the room. U=the effect.
+FX_ROOM     equ 8
+; ContrailSegment_Update: its image, at (x - 6, y - 6) as fx_drawc puts it.
+fx_lowc     bsr fx_full
+            bhi fx_lowx
+            ldd #312
+            jmp fx_drawc
+; fx_speck: X, Y=where. One of its two images, at random: the random number is drawn either way, as the game's other
+; randomness shares it.
+fx_lowd     jsr Random
+            andb #1
+            clra
+            addd #312
+            pshs d
+            bsr fx_full
+            puls d
+            bhi fx_lowx
+            jmp Draw_ColoredSprite
+; HI if fewer than FX_ROOM entries are free.
+fx_full     ldd <dl_newp
+            addd #FX_ROOM*DL_SIZE
+            cmpd <dl_limit
+fx_lowx     rts
+
 ; ---- scoring --------------------------------------------------------------------------------
 Main_RecordKill
             ldx <kills
