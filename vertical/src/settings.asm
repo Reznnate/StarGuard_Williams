@@ -4,28 +4,51 @@
 ; The menu reads the buttons as wired, so a bad mapping cannot lock anyone out of it, and it marks each button held, for
 ; checking a harness: so a player button does not change a button's line.
 ; The settings live in the CMOS after the scores, a nibble a button: 0, or anything past ST_NONE, is that button's default.
-; Then a nibble for the bezel: ST_OFF turns it off, anything else leaves it on.
+; Then a nibble for the bezel: ST_OFF turns it off, anything else leaves it on. The vertical build has one more, for how
+; the view scrolls sideways: SM_1PX, SM_NOWAIT, anything else 2 pixels a step.
 
 CM_SET      equ CMOS+4+9*CM_LEVEL
 ST_BUTTONS  equ 3
 CM_BEZEL    equ CM_SET+ST_BUTTONS
+            if VERT
+CM_SCROLL   equ CM_BEZEL+1
+CM_SET_END  equ CM_SCROLL+1
+            else
 CM_SET_END  equ CM_BEZEL+1
+            endif
             assert CM_SET_END<=CMOS+$400,"the settings overflow the CMOS"
 ST_FIRE     equ 1               ; what a button does
 ST_JUMP     equ 2
 ST_NONE     equ 3
 ST_ON       equ 1               ; the bezel
 ST_OFF      equ 2
+SM_2PX      equ 0               ; the vertical build's sideways scroll: 2 pixels a step, waiting for the beam
+SM_1PX      equ 1               ; 1 pixel a step: smoother, slower
+SM_NOWAIT   equ 2               ; 2 pixels, with no wait for the beam on a step along the lines only: faster; a sprite may
+SM_MODES    equ 3               ; show erased for a frame
+            if VERT
+ST_LINES    equ 8               ; the lines: the three buttons, then these
+ST_BEZEL    equ 3
+ST_SCROLL   equ 4
+ST_RESET    equ 5
+ST_DEFAULTS equ 6
+ST_EXIT     equ 7
+            else
 ST_LINES    equ 7               ; the lines: the three buttons, then these
 ST_BEZEL    equ 3
 ST_RESET    equ 4
 ST_DEFAULTS equ 5
 ST_EXIT     equ 6
+            endif
 ST_X        equ 24              ; on the original's 192x108 screen, as S_Text takes them
 ST_VX       equ 116
 ST_HX       equ 158             ; the mark for a button held
 ST_Y        equ 22
+            if VERT
+ST_STEP     equ 8               ; so that the last line is clear of the help below
+            else
 ST_STEP     equ 9               ; so that the last line is clear of the help below
+            endif
 ST_COLOR_HELD equ $33           ; green, both pixels
 
 st_ln       equ ent_pool+240    ; st_line: the line
@@ -71,7 +94,86 @@ st_masks    clr map_fire
             sta map_jump
 .on         decb
             bpl .next
+            if VERT
+            ; And the scroll, as Camera_Apply and Present read it: sc_1px, sc_nw.
+            clr sc_1px
+            clr sc_nw
+            bsr st_scrget
+            cmpa #SM_1PX
+            bne .n1
+            inc sc_1px
+.n1         cmpa #SM_NOWAIT
+            bne .n2
+            inc sc_nw
+.n2
+            endif
             rts
+
+            if VERT
+; The SCROLL hotkey, in a level: Advance on the coin door changes the scroll setting at once, kept as the menu keeps it, and
+; says so for 2 seconds in the black between the window's red edge and the bezel's bands (S_Text's coordinates: pixel
+; columns 87 to 93, as the glyphs' rows land at SCV_P - y - row). From vbz_quick, once a tick, when Advance has changed or
+; the note is showing.
+SCH_X       equ 58
+SCH_Y       equ SCV_P-93-SC_OY
+SCH_W       equ 72              ; "SCROLL 1 PIXEL", 5 lines a letter
+SCH_T       equ 60
+sc_hotkey   lda sc_pia
+            anda #IN2_ADVANCE
+            cmpa sc_adv
+            beq .timer
+            sta sc_adv
+            tsta
+            beq .timer          ; let go
+            bsr st_scrget
+            inca
+            cmpa #SM_MODES
+            blo .set
+            clra
+.set        sta CM_SCROLL
+            jsr st_masks
+            lda #SND_GUI_02
+            jsr Sound_Play
+            bsr .erase
+            lda <draw_color
+            pshs a
+            lda #COLOR_YELLOW
+            sta <draw_color
+            ldx #SCH_X
+            ldy #SCH_Y
+            ldu #st_txtscroll
+            jsr S_Text
+            bsr st_scrget
+            asla
+            ldx #st_scrolls
+            ldu a,x
+            ldx #SCH_X+35
+            ldy #SCH_Y
+            jsr S_Text
+            puls a
+            sta <draw_color
+            lda #SCH_T
+            sta sc_note
+            rts
+.timer      tst sc_note
+            beq .out
+            dec sc_note
+            bne .out
+.erase      ldx #SCH_X
+            ldy #SCH_Y
+            lda #SCH_W
+            ldb #7
+            jmp S_Erase
+.out        rts
+
+; A=the scroll setting, SM_2PX to SM_NOWAIT. Keeps B, X, Y, U.
+st_scrget   lda CM_SCROLL
+            anda #$0F
+            cmpa #SM_MODES
+            blo .ok
+            clra
+.ok         rts
+            endif
 
 ; Z set if the bezel is turned off. Keeps B, X, Y, U.
 st_bzoff    lda CM_BEZEL
@@ -216,8 +318,34 @@ Settings_Screen
             jsr st_masks
             lda sc_sel
             jsr st_line
+            if VERT
+            lbra .ding
+            else
             bra .ding
-.action     cmpa #ST_BEZEL
+            endif
+.action
+            if VERT
+            cmpa #ST_SCROLL
+            bne .nscroll
+            ldb st_chg          ; the scroll: the stick either way, any button on
+            bne .sc
+            tst st_btn
+            lbeq .loop
+            ldb #1
+.sc         jsr st_scrget
+            pshs b
+            adda ,s+
+            bpl .sc_lo
+            lda #SM_MODES-1
+.sc_lo      cmpa #SM_MODES
+            blo .sc_set
+            clra
+.sc_set     sta CM_SCROLL
+            jsr st_masks
+            bra .redraw
+.nscroll
+            endif
+            cmpa #ST_BEZEL
             bne .act
             tst st_chg          ; the bezel: the stick or any button turns it on or off
             bne .bz
@@ -317,7 +445,18 @@ st_line     sta st_ln
             ldx #st_funcs
             ldu a,x
             bra .value
-.bezel      cmpa #ST_BEZEL
+.bezel
+            if VERT
+            cmpa #ST_SCROLL
+            bne .nsc
+            jsr st_scrget
+            asla
+            ldx #st_scrolls
+            ldu a,x
+            bra .value
+.nsc
+            endif
+            cmpa #ST_BEZEL
             bne .act
             ldu #st_txton
             jsr st_bzoff
@@ -368,7 +507,20 @@ st_held     jsr st_raw_read
             blo .each
 .same       rts
 
+            if VERT
+st_labels   fdb st_txtb1,st_txtb2,st_txtb3,st_txtbezel,st_txtscroll,st_txtreset,st_txtdef,st_txtexit
+st_scrolls  fdb st_txt2px,st_txt1px,st_txtnowait
+st_txtscroll fcc "SCROLL"
+            fcb 0
+st_txt2px   fcc "2 PIXEL"
+            fcb 0
+st_txt1px   fcc "1 PIXEL"
+            fcb 0
+st_txtnowait fcc "NO WAIT"
+            fcb 0
+            else
 st_labels   fdb st_txtb1,st_txtb2,st_txtb3,st_txtbezel,st_txtreset,st_txtdef,st_txtexit
+            endif
 st_funcs    fdb st_txtfire,st_txtjump,st_txtnone
 st_txthead  fcc "ADVANCED SETTINGS"
             fcb 0

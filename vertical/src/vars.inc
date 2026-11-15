@@ -480,6 +480,13 @@ wiz_ram     equ $BD00       ; 512 bytes, for the boss
 pb_ok       equ $9700
 pb_idx      equ $9701       ; its first entry's index, in both lists
 pb_n        equ $9702       ; how many entries
+            if VERT
+sc_1px      equ $9703       ; the scroll setting, from st_masks: nonzero for 1 pixel a step
+sc_nw       equ $9704       ; nonzero for no wait for the beam on a step along the lines only
+sc_note     equ $9705       ; ticks the SCROLL hotkey's note stays beside the window
+sc_adv      equ $9706       ; Advance as the hotkey last saw it
+sc_pia      equ $9707       ; IN2 as the interrupt read it: reading it in the loop could take the interrupt's flag
+            endif
 tl_rooms    equ $BEFC       ; the terrain list's rooms: tl_rooms_lvl, or tl_rooms_boss once a boss exists (after Q_SMALL)
 tl_k        equ $BEFE       ; tl_insert1: the rect's flags, less RECT_HIDE
 ; The settings' button masks (settings.asm): which PIA0_B buttons fire, and which jump. Kept past a reset; Cmos_Check sets them.

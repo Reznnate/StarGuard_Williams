@@ -142,6 +142,9 @@ Screen_Clear
             rts
 
 irq         lda PIA1_A          ; clears the interrupt flag
+            if VERT
+            sta sc_pia          ; for the SCROLL hotkey
+            endif
             inc <vphase
             ldx <frames
             leax 1,x
@@ -649,8 +652,10 @@ Present     lda #WATCHDOG_KEY   ; a slow tick should slow the game, not reset th
             ; Even a late tick waits for the beam: a moving view drawn while the beam crosses it shows blocks half drawn,
             ; which looks worse than the moment the wait costs. (q_nowait stays 0: kept to try the other way again.)
             clr q_nowait
-            if VERT_NOWAIT
-            ldd <cam_col        ; the other way, to try: a step along the lines only does not wait
+            if VERT
+            tst sc_nw           ; the scroll setting NO WAIT: a step along the lines only does not wait
+            beq .xw
+            ldd <cam_col
             cmpd <old_col
             bne .xw
             inc q_nowait
@@ -2116,9 +2121,10 @@ Camera_Apply
             subd #GVIEW_HALF_W
             std <gcam_left
             puls d
-            if VERT_STEP1==0
+            tst sc_1px          ; the scroll setting 1 PIXEL keeps the odd line
+            bne .px1
             andb #VIEW_STEP_X
-            endif
+.px1
             if VERT_STEP4
             andb #VIEW_STEP_Y   ; 4 lines at a time: cheaper, but it judders
             endif
@@ -2208,8 +2214,10 @@ Camera_Apply
             endif
             rts
 
-; A smooth curve from 0 to 255 over 30 ticks, index 1..30.
+            if VERT==0
+; A smooth curve from 0 to 255 over 30 ticks, index 1..30. The vertical build's is in render.asm, for room here.
 death_ease  fcb 0,1,2,5,9,14,20,27,35,44,55,66,79,92,106,120,135,150,163,176,189,200,211,220,228,235,241,246,250,253,255
+            endif
 
 ; Draw.SetCamera: X=x, Y=y.
 Camera_Set  stx <camm_x

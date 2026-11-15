@@ -1,12 +1,6 @@
 ; Star Guard for the Williams Blaster board.
-            ifndef VERT_STEP1
-VERT_STEP1  equ 0          ; 1: the vertical build scrolls sideways 1 pixel at a time (smoother, slower); 0: 2 pixels
-            endif
             ifndef VERT_STEP4
 VERT_STEP4  equ 0          ; 1: the vertical build scrolls sideways 4 pixels at a time
-            endif
-            ifndef VERT_NOWAIT
-VERT_NOWAIT equ 0          ; 1: the vertical build does not wait for the beam on a step along the lines only (to try)
             endif
             ifndef VERT
 VERT        equ 0           ; 1: the vertical build (-D VERT=1, with gen_assets.py --vertical)

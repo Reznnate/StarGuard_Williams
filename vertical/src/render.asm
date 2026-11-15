@@ -3190,3 +3190,8 @@ wm_still    ldx <dl_new
             lda #1
             jmp wm_half
             endif
+
+            if VERT
+; A smooth curve from 0 to 255 over 30 ticks, index 1..30 (Camera_Apply). Here for room in the fixed ROM at $D000.
+death_ease  fcb 0,1,2,5,9,14,20,27,35,44,55,66,79,92,106,120,135,150,163,176,189,200,211,220,228,235,241,246,250,253,255
+            endif
