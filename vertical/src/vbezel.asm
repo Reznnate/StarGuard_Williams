@@ -53,6 +53,7 @@ vbz_tick    tst vbz_on
             std vbz_plo
             ldd #$FF00
             std vbz_clo
+            clr BLIT_SOLID
             rts
 
 ; Every band.
@@ -70,6 +71,7 @@ vbz_draw    jsr vbz_all
             ldd #$FF00          ; no covers yet
             std vbz_clo
             std vbz_plo
+            clr BLIT_SOLID
             rts
 
 ; vbz_px's lines: all the monitor shows.
@@ -109,9 +111,8 @@ vbz_px      sta BLIT_SOLID
             ldb vbz_ln
             std BLIT_W
             puls a
-            sta BLIT_CTRL
-            clr BLIT_SOLID
-            rts
+            sta BLIT_CTRL       ; on a board the CPU runs one instruction more before it halts for the blit, so nothing
+            rts                 ; here may touch the blitter: the callers clear BLIT_SOLID once their blits are done
 
 ; Each band's pen: band 0 the game's red (pen 1), then pens 10 to 15 from the window out, neighbouring pens mixed where
 ; they meet so that the fade has no hard steps.

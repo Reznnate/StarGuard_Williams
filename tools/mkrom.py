@@ -9,6 +9,7 @@ Main ROM files are cut from the image at the offsets MAME's driver loads them. T
 Williams' and are not part of this project: they come from your own romsets. The game's sounds are Robotron's, so its
 sound ROM goes in the Blaster sound sockets; without --robotron-sound, Blaster's own sound ROM stays and the sounds are
 wrong. blaster.col is replaced by an identity table so that the blitter source remap leaves pixel values alone.
+Beside blaster.zip goes blaster_jrok.zip: the same files under the short names a JROK Williams FPGA board looks for.
 
 Where your romsets are: the options, else the environment variables STARGUARD_BLASTER_ZIP and STARGUARD_ROBOTRON_ZIP,
 else tools/roms.cfg beside this script (not checked in), with lines such as
@@ -36,6 +37,7 @@ MAIN = [
 COPIED = ["proto5_blaster_3021_rom_18.sb10", "proto5_blaster_3021_rom_18.sb13", "decoder_rom_4.ic42", "video_decoder_rom_6.ic23"]
 COL = "blaster.col"
 GAME_ZIP = "starguard_game_roms.zip"
+JROK_ZIP = "blaster_jrok.zip"
 
 
 def configured(key, env):
@@ -102,6 +104,16 @@ def main():
             out.writestr(name, data)
         out.writestr(COL, files[COL])
     print("wrote", path)
+    # The same files under the names a JROK Williams FPGA board looks for: each name from after its last underscore,
+    # as 11.ic25 for proto6_blaster_3021_rom_11.ic25.
+    jrok_path = os.path.join(args.out_dir, JROK_ZIP)
+    with zipfile.ZipFile(path) as full, zipfile.ZipFile(jrok_path, "w", zipfile.ZIP_DEFLATED) as out:
+        short = [name.rpartition("_")[2] for name in full.namelist()]
+        if len(set(short)) != len(short):
+            raise SystemExit("two files share a JROK name: " + " ".join(sorted(short)))
+        for name, to in zip(full.namelist(), short):
+            out.writestr(to, full.read(name))
+    print("wrote", jrok_path)
 
 
 if __name__ == "__main__":

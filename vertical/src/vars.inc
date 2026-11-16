@@ -545,13 +545,14 @@ bz_line     equ $BCF9       ; the bezel: the line its light is on
 bz_save     equ $BCFA       ; what that line was
 bz_dirty    equ $BCFB       ; ticks left to redraw its rails, which black covers can nick
             if VERT
-; The vertical build's bezel is pixels (vbezel.asm), so the line flags go unused: some of its variables are there.
-vbz_clo     equ LINE_FLAGS  ; the lines black covers have reached this tick: band 0 may be nicked there
-vbz_chi     equ LINE_FLAGS+1    ; one past the last
+; The vertical build's bezel is pixels (vbezel.asm), so the line flags go unused: two of its variables are there. The rest
+; are in plain RAM, whole bytes that must read back as written: a board need keep only 2 bits of a line flag.
+vbz_clo     equ $9708       ; the lines black covers have reached this tick: band 0 may be nicked there
+vbz_chi     equ $9709       ; one past the last
+vbz_l0      equ $970A       ; vbz_px's first line, and how many
+vbz_ln      equ $970B
 vbz_plo     equ LINE_FLAGS+2    ; and last tick, whose covers are erased this tick
 vbz_phi     equ LINE_FLAGS+3
-vbz_l0      equ LINE_FLAGS+4    ; vbz_px's first line, and how many
-vbz_ln      equ LINE_FLAGS+5
             endif
 gov_free    equ $BCFC       ; a bolt turret or a turret row is firing: its shots are part of a beat, and the governor leaves them alone
 trial_on    equ $BCFD       ; playing one level from the scores
